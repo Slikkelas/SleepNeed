@@ -1,0 +1,13 @@
+{
+    "type": "code",
+    "modid": "sleepneed",
+    "name": "SleepNeed",
+    "authors": [
+        "Slikkelas"
+    ],
+    "description": "Gives the player a need for sleep by adding an energy and sleepiness mechanic",
+    "version": "1.0.0",
+    "dependencies": {
+        "game": "1.20.0"
+    }
+}
