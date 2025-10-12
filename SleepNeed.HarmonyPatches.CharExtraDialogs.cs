@@ -132,6 +132,7 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
             float max = treeAttribute.GetFloat("maxenergy", 0f);
             float maxInvigorated = ConfigSystem.ConfigServer.MaxEnergy;
             float invigorated = treeAttribute.GetFloat("invigorated", 0f);
+
             GuiElementDynamicTextHelper.GetDynamicText(composer, "energy").SetNewText(((int)currentenergylevel).ToString() + " / " + max.ToString(), false, false, false);
             Vintagestory.API.Client.GuiComposerHelpers.GetStatbar(composer, "energyHealthBar").SetLineInterval(100f);
             Vintagestory.API.Client.GuiComposerHelpers.GetStatbar(composer, "energyHealthBar").SetValues(invigorated, 0f, maxInvigorated);

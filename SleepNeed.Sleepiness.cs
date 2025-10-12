@@ -9,6 +9,7 @@ using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 using Vintagestory.ServerMods.NoObf;
 using Vintagestory.API.Config;
+using SleepNeed.Config;
 
 
 namespace SleepNeed.Sleepiness
@@ -32,7 +33,7 @@ namespace SleepNeed.Sleepiness
         {
             get
             {
-                float sleepinesscapacityOverload = (float)Math.Round((double)(this.SleepinessCapacityModifier * ConfigSystem.ConfigServer.SleepinessCapacityOverload * this.SleepinessCapacity));
+                float sleepinesscapacityOverload = (float)Math.Round((double)(ConfigSystem.ConfigServer.SleepinessCapacityOverload * this.SleepinessCapacity));
                 ITreeAttribute sleepinessTree = this._sleepinessTree;
                 if (sleepinessTree != null)
                 {
@@ -47,7 +48,7 @@ namespace SleepNeed.Sleepiness
         {
             get
             {
-                float sleepinessCapacity = (float)Math.Round((double)(this.SleepinessCapacityModifier * this._hoursPerDay / 2f));
+                float sleepinessCapacity = (float)Math.Round((double)(this.SleepinessCapacityModifier * this._hoursPerDay * this.ConfigCapacity));
                 ITreeAttribute sleepinessTree = this._sleepinessTree;
                 if (sleepinessTree != null)
                 {
@@ -141,7 +142,9 @@ namespace SleepNeed.Sleepiness
             }
             this._hoursTotal = this.entity.World.Calendar.TotalHours;
             this._hoursPerDay = this.entity.World.Calendar.HoursPerDay;
-            
+            this.ConfigCapacity = ConfigSystem.ConfigServer.MaxSleepiness / this._hoursPerDay;
+
+
 
 
         }
@@ -181,12 +184,20 @@ namespace SleepNeed.Sleepiness
             
             if (hoursPassed > 0.0f && this._isSleepingNow == false)
             {
-                // * 0.75f is the rate at which sleepiness increases per hour when not sleeping
-                this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * 0.75f, 0f, this.EffectiveSleepinessCapacity);
+                if (ConfigSystem.ConfigServer.EnableEnergy)
+                {
+                    // This is to slow down sleepiness gain if ou are healthy and well. May ease up early game.
+                    this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * Math.Clamp(this.SleepinessFactor, 0.55f, 0.90f), 0f, this.EffectiveSleepinessCapacity); // Changed from 0.60 to 0.85, wich is in the current 2.0.0 version
+                }
+                else
+                {
+                    // * 0.75f is the rate at which sleepiness increases per hour when not sleeping
+                    this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * 0.70f, 0f, this.EffectiveSleepinessCapacity);
+                }
             }
             this.SleepinessRatio = this.CurrentSleepinessLevel / this.EffectiveSleepinessCapacity;
             this.SleepinessOverloadRatio = Math.Clamp(this.OverloadThreshold * (this.CurrentSleepinessLevel - (this.OverloadThreshold * this.EffectiveSleepinessCapacity)) / ((this.SleepinessCapacityOverload / this.EffectiveSleepinessCapacity) * this.EffectiveSleepinessCapacity) + this.OverloadThreshold, this.OverloadThreshold, 1f);
-
+            
             if (hoursPassed > 0.0f && this._isSleepingNow == true)
             {
                 // * 1.5f is the rate at which sleepiness decreases per hour when sleeping
@@ -195,18 +206,19 @@ namespace SleepNeed.Sleepiness
                     var energy = entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
                     if (energy != null)
                     {
-                        if (energy.EnergyRatio > 0.1f && energy.EnergyRatio < 0.7f)
+                        this.SleepinessFactor = (1f - (((1f - (this.SleepinessRatio)) + energy.EnergyRatio + energy.OverallHealthRatio) / 3f)); // Used for Sleepiness gain
+                        if (energy.EnergyRatio >= 0.0f && energy.EnergyRatio < 0.7f) // From 0.1 to 0.0
                         {
-                            this.SleepEnergyModifier = 1f;
+                            this.SleepEnergyModifier = Math.Clamp(ConfigSystem.ConfigServer.SleepDebuffFromLowEnergy + ((energy.EnergyRatio + energy.SatRatio) / 2f), 0.5f, 1.0f); // Changed 0.35f to 0.4f
                         }
                         else if (energy.EnergyRatio >= 0.7f)
                         {
-                            this.SleepEnergyModifier = 1f + (ConfigSystem.ConfigServer.SleepBoostFromHighEnergy * energy.EnergyRatioHighEnergyPart2);
+                            this.SleepEnergyModifier = 1f + (ConfigSystem.ConfigServer.SleepBoostFromHighEnergy * ((energy.EnergyRatioHighEnergyPart2 + energy.SatRatio) / 2f));
                         }
-                        else if (energy.EnergyRatio <= 0.1f)
-                        {
-                            this.SleepEnergyModifier = 1f + (ConfigSystem.ConfigServer.SleepDebuffFromLowEnergy * energy.EnergyRatioLowEnergyPart2);
-                        }
+                        // else if (energy.EnergyRatio <= 0.1f)
+                        // {
+                        //    this.SleepEnergyModifier = 1f + (ConfigSystem.ConfigServer.SleepDebuffFromLowEnergy * energy.EnergyRatioLowEnergyPart2);
+                        // }
 
                         if (energy.SatRatio <= 0.2f)
                         {
@@ -361,9 +373,13 @@ namespace SleepNeed.Sleepiness
 
         public Random Rand;
 
+        private float SleepinessFactor;
+
+        private float ConfigCapacity;
+
         private float SleepinessOverloadRatio;
 
-        private float OverloadThreshold;
+        public float OverloadThreshold;
 
         public bool IsOverloadedForEnergy;
 

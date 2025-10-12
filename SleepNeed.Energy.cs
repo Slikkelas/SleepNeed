@@ -1,12 +1,13 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using SleepNeed.Sleepiness;
+using SleepNeed.Systems;
+using SleepNeed.Util;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
-using Newtonsoft.Json.Linq;
-using SleepNeed.Systems;
-using SleepNeed.Util;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -15,8 +16,8 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Util;
 using Vintagestory.GameContent;
-using static System.Net.Mime.MediaTypeNames;
 using static HarmonyLib.Code;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace SleepNeed.Energy
 {
@@ -211,7 +212,8 @@ namespace SleepNeed.Energy
                 
             }
             this.lungCapacity = this.entity.World.Config.GetAsInt("lungCapacity", 40000);
-            this.num3 = this.GetEnergySpeedModifier / 15f; // Prøv at tweake med denne faktor (SE HEEEER!!!)
+            EntityBehaviorEnergy._sprintSpeedMultiplier = GlobalConstants.SprintSpeedMultiplier;
+            this.num3 = this.GetEnergySpeedModifier / 20f; // Prøv at tweake med denne faktor (SE HEEEER!!!)
             this.num4 = this.GetEnergySpeedModifier / 5f;
             // Play with tickrate, it impacts how often the energy is updated. It has an impact on how it registers the hoursPassed for energy consumption.
             if (this.entity is EntityPlayer)
@@ -220,9 +222,6 @@ namespace SleepNeed.Energy
             }
             this.entity.Stats.Register(BtCore.Modid + ":energyrate", (EnumStatBlendType)2);
             this.UpdateEnergyBoosts();
-
-
-
 
         }
 
@@ -236,43 +235,19 @@ namespace SleepNeed.Energy
         
         public override void DidAttack(DamageSource source, EntityAgent targetEntity, ref EnumHandling handled)
         {
-            this.ConsumeEnergy(100f * ConfigSystem.ConfigServer.AttackEnergyCostModifier);
+            this.ConsumeEnergy(this._weaponToolWorkCounter * ConfigSystem.ConfigServer.AttackEnergyCostModifier);
         }
 
         
         public virtual void ConsumeEnergy(float amount)
         {
-            this.ReduceEnergy(amount / 10f);
+            this.ReduceEnergy(amount * this.EnergyRate);
         }
 
 
 
         
-        public void ReceiveEnergyBySleeping(Entity entity)
-        {
-            // Skal måske fjerne "if (entity == null) return;"
-            if (entity == null) return;
-            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
-            if (sleepiness == null || !sleepiness.IsSleepingNow)
-            {
-                return;
-            }
-            if (sleepiness.LastHoursPassed <= 0f) return; // Only restore if time has passed
-            
-            bool wasFull = this.CurrentEnergy >= this.MaxEnergy;
-            this.SleepRatio = 1f - sleepiness.SleepinessRatio;
-            this.EnergyRestored = sleepiness.LastHoursPassed * ((this.MaxEnergy * 0.08f) * (ConfigSystem.ConfigServer.EnergyRestoredBySleepingModifier + this.SleepRatio)); // Adjust multiplier as needed
-            this.CurrentEnergy = Math.Clamp(this.CurrentEnergy + ((this.EnergyRestored + sleepiness.EnergyRestoredfromSleepiness) + ((this.EnergyRestored + sleepiness.EnergyRestoredfromSleepiness) * this.OverallHealthRatio)), 0f, this.MaxEnergy);
-            if ((double)this.CurrentEnergy > 0.6 * (double)this.MaxEnergy && this.SleepRatio > 0.7f)
-            {
-                this.Invigorated = Math.Clamp(this.Invigorated + (((this.CurrentEnergy * 0.08f) * this.OverallHealthRatio) * this.SleepRatio), 0f, ConfigSystem.ConfigServer.MaxEnergy); 
-            }
-            if (!wasFull)
-            {
-                this.EnergyLossDelay = Math.Max(this.EnergyLossDelay, 10f);
-            }
-            
-        }
+        
 
         
 
@@ -281,40 +256,47 @@ namespace SleepNeed.Energy
         public override void OnGameTick(float deltaTime)
         {
             EntityPlayer player = this.entity as EntityPlayer;
-
-
-
+            if (ConfigSystem.ConfigServer.EnableEnergy && this.HasRevived)
+            {
+                this.CurrentEnergy = ConfigSystem.ConfigServer.MaxEnergy * ConfigSystem.ConfigServer.EnergyAfterRevival;
+                this.HasRevived = false;
+                return;
+            }
             if (player != null && player.Player != null && this._entityAgent != null)
             {
                 var invMan = player.Player.InventoryManager;
-                if (invMan != null)
+                if (invMan != null && invMan.ActiveHotbarSlot != null)
                 {
-                try
-                {
-                    EnumTool? activeTool = invMan.ActiveTool;
-                    if (activeTool != null)
+                    try
                     {
-                        if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Warhammer || activeTool == EnumTool.Halberd || activeTool == EnumTool.Polearm || activeTool == EnumTool.Poleaxe || activeTool == EnumTool.Javelin || activeTool == EnumTool.Pike)))
+                        // Check if the hotbar slot has a valid item before getting the tool type
+                        if (invMan.ActiveHotbarSlot.Itemstack != null)
                         {
-                            this._heavyToolWorkCounter++;
-                        }
-                        if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Pickaxe || activeTool == EnumTool.Axe || activeTool == EnumTool.Shovel || activeTool == EnumTool.Hammer || activeTool == EnumTool.Sickle || activeTool == EnumTool.Hoe || activeTool == EnumTool.Saw || activeTool == EnumTool.Scythe)))
-                        {
-                            this._mediumToolWorkCounter++;
-                        }
-                        if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Knife || activeTool == EnumTool.Shears || activeTool == EnumTool.Chisel || activeTool == EnumTool.Sling || activeTool == EnumTool.Wrench || activeTool == EnumTool.Probe || activeTool == EnumTool.Meter || activeTool == EnumTool.Drill || activeTool == EnumTool.Firearm)))
-                        {
-                            this._lightToolWorkCounter++;
-                        }
-                        if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Sword || activeTool == EnumTool.Spear || activeTool == EnumTool.Bow || activeTool == EnumTool.Crossbow || activeTool == EnumTool.Shield || activeTool == EnumTool.Club || activeTool == EnumTool.Mace || activeTool == EnumTool.Staff)))
-                        {
-                            this._weaponToolWorkCounter++;
+                            EnumTool? activeTool = invMan.ActiveTool;
+
+                            if (activeTool != null)
+                            {
+                                if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Warhammer || activeTool == EnumTool.Halberd || activeTool == EnumTool.Polearm || activeTool == EnumTool.Poleaxe || activeTool == EnumTool.Javelin || activeTool == EnumTool.Pike)))
+                                {
+                                    this._heavyToolWorkCounter++;
+                                }
+                                if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Pickaxe || activeTool == EnumTool.Axe || activeTool == EnumTool.Shovel || activeTool == EnumTool.Hammer || activeTool == EnumTool.Sickle || activeTool == EnumTool.Hoe || activeTool == EnumTool.Saw || activeTool == EnumTool.Scythe)))
+                                {
+                                    this._mediumToolWorkCounter++;
+                                }
+                                if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Knife || activeTool == EnumTool.Shears || activeTool == EnumTool.Chisel || activeTool == EnumTool.Sling || activeTool == EnumTool.Wrench || activeTool == EnumTool.Probe || activeTool == EnumTool.Meter || activeTool == EnumTool.Drill || activeTool == EnumTool.Firearm)))
+                                {
+                                    this._lightToolWorkCounter++;
+                                }
+                                if ((this._entityAgent.Controls.LeftMouseDown && (activeTool == EnumTool.Sword || activeTool == EnumTool.Spear || activeTool == EnumTool.Bow || activeTool == EnumTool.Crossbow || activeTool == EnumTool.Shield || activeTool == EnumTool.Club || activeTool == EnumTool.Mace || activeTool == EnumTool.Staff)))
+                                {
+                                    this._weaponToolWorkCounter++;
+                                }
+                            }
                         }
                     }
-                }
                     catch (NullReferenceException e)
                     {
-                        // Log the exception with more context
                         _api?.Logger.Error($"[SleepNeed] NullReferenceException in OnGameTick when accessing ActiveTool: {e.Message}\n{e.StackTrace}");
                     }
                 }
@@ -356,7 +338,7 @@ namespace SleepNeed.Energy
                 }
                 if ((double)this._mediumToolWorkCounter > 0.0)
                 {
-                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (14.0 + (double)this._mediumToolWorkCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.MediumToolsEnergyCostModifier);
+                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (18.0 + (double)this._mediumToolWorkCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.MediumToolsEnergyCostModifier);
                 }
                 if ((double)this._lightToolWorkCounter > 0.0)
                 {
@@ -364,7 +346,7 @@ namespace SleepNeed.Energy
                 }
                 if ((double)this._weaponToolWorkCounter > 0.0)
                 {
-                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (12.0 + (double)this._weaponToolWorkCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.WeaponsEnergyCostModifier);
+                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (15.0 + (double)this._weaponToolWorkCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.WeaponsEnergyCostModifier);
                 }
                 if ((double)this._workCounter > 0.0)
                 {
@@ -376,11 +358,11 @@ namespace SleepNeed.Energy
                 }
                 if ((double)this._sprintCounter > 0.0)
                 {
-                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (28.0 + (double)this._sprintCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.SprintingJumpingEnergyCostModifier);
+                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (20.0 + (double)this._sprintCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.SprintingJumpingEnergyCostModifier);
                 }
                 if ((double)this._jumpCounter > 0.0)
                 {
-                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (32.0 + (double)this._jumpCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.SprintingJumpingEnergyCostModifier);
+                    this.ReduceEnergy((this.num3 * (float)(1.2000000476837158 * (18.0 + (double)this._jumpCounter / 15.0) / 10.0) * this.EnergyRate * num2) * ConfigSystem.ConfigServer.SprintingJumpingEnergyCostModifier);
                 }
                 if ((double)this._sittingCounter > 0.0 && this.HotOrCold)
                 {
@@ -447,7 +429,7 @@ namespace SleepNeed.Energy
                     }
                     if (this.Invigorated > 0f)
                     {
-                        this.Invigorated = Math.Max(0f, this.Invigorated - ((satLossMultiplier * this.EnergyRate) * ConfigSystem.ConfigServer.NutritionLossWhenStarvingModifier));
+                        this.Invigorated = Math.Max(0f, this.Invigorated - ((satLossMultiplier * (this.EnergyRate * 10f)) * ConfigSystem.ConfigServer.NutritionLossWhenStarvingModifier));
                     }
                 }
             }
@@ -458,7 +440,8 @@ namespace SleepNeed.Energy
             }
             else if (this.CurrentEnergy < 0.3f * ConfigSystem.ConfigServer.MaxEnergy)
             {
-                this.Invigorated = Math.Max(0f, this.Invigorated - ((satLossMultiplier * (this.EnergyRate * 10f)) * Math.Max(0.1f, (1f - this.OverallHealthRatio))));
+
+                this.Invigorated = Math.Max(0f, this.Invigorated * (this.CurrentEnergy / (ConfigSystem.ConfigServer.MaxEnergy * 0.3f))); // Math.Max(0f, this.Invigorated - ((satLossMultiplier * (this.EnergyRate * 10f)) * Math.Max(0.1f, (1f - this.OverallHealthRatio))));
                 
             }
             if (flag)
@@ -479,30 +462,113 @@ namespace SleepNeed.Energy
         {
             bool flag = false;
             satLossMultiplier *= this.GetEnergySpeedModifier;
-            
-            if ((double)this.EnergyLossDelay > 0.0)
+            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
+            if (ConfigSystem.ConfigServer.EnableSleepiness && sleepiness != null)
             {
-                this.EnergyLossDelay -= 10f * satLossMultiplier;
-                flag = true;
+                if ((double)this.EnergyLossDelay > 0.0)
+                {
+                    this.EnergyLossDelay -= 10f * satLossMultiplier;
+                    flag = true;
+                }
+                else if (this.CurrentEnergy > 0.6f * ConfigSystem.ConfigServer.MaxEnergy && this.SleepRatio > 0.7f && !sleepiness.IsOverloadedForEnergy && !this.Starving)
+                {
+                    this.Invigorated = Math.Max(0f, this.Invigorated + ((satLossMultiplier * ((this.SleepRatio * this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                }
+
+                if (flag)
+                {
+                    this._energyCounter -= 10f;
+                    return true;
+                }
+                if (!this.Starving)
+                {
+                    if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy <= (ConfigSystem.ConfigServer.MaxEnergy * 0.4f) && !sleepiness.IsOverloadedForEnergy)
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + (((satLossMultiplier * (this.SleepRatio + this.OverallHealthRatio))) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                    else if (this.CurrentEnergy > 0.6f * ConfigSystem.ConfigServer.MaxEnergy && !sleepiness.IsOverloadedForEnergy)
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + ((satLossMultiplier * this.OverallHealthRatio) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                    else if ((double)this.CurrentEnergy >= 0.0 && !sleepiness.IsOverloadedForEnergy)
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + ((satLossMultiplier * ((this.SleepRatio + this.OverallHealthRatio) / 2f)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                    else if ((double)this.CurrentEnergy >= 0.0 && sleepiness.IsOverloadedForEnergy) // (1f - sleepiness.OverloadThreshold) This is to reverse it, because in sleepiness behavior it is used differently.
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + 1f);
+                    }
+                    else if ((double)this.CurrentEnergy >= 0.0)
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + ((satLossMultiplier * (this.SleepRatio * this.OverallHealthRatio)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                }
             }
-            else if (this.CurrentEnergy > 0.6f * ConfigSystem.ConfigServer.MaxEnergy && this.SleepRatio > 0.7f)
+            // If sleepiness is disabled
+            else
             {
-                this.Invigorated = Math.Max(0f, this.Invigorated + ((satLossMultiplier * this.OverallHealthRatio)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier);
-            }
-            if (flag)
-            {
-                this._energyCounter -= 10f;
-                return true;
-            }
-            if ((double)this.CurrentEnergy >= 0.0)
-            {
-                this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + ((satLossMultiplier * (1f + this.OverallHealthRatio)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                
+                if ((double)this.EnergyLossDelay > 0.0)
+                {
+                    this.EnergyLossDelay -= 10f * satLossMultiplier;
+                    flag = true;
+                }
+                else if (this.CurrentEnergy > 0.6f * ConfigSystem.ConfigServer.MaxEnergy && !this.Starving)
+                {
+                    this.Invigorated = Math.Max(0f, this.Invigorated + ((satLossMultiplier * (this.OverallHealthRatio))) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier);
+                }
+
+                if (flag)
+                {
+                    this._energyCounter -= 10f;
+                    return true;
+                }
+                if (!this.Starving)
+                {
+                    if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy <= (ConfigSystem.ConfigServer.MaxEnergy * 0.4f))
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + (((satLossMultiplier * (1f + this.OverallHealthRatio))) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                    else if (this.CurrentEnergy > 0.6f * ConfigSystem.ConfigServer.MaxEnergy)
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + ((satLossMultiplier * (this.OverallHealthRatio)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                    else if ((double)this.CurrentEnergy >= 0.0)
+                    {
+                        this.CurrentEnergy = Math.Max(0f, this.CurrentEnergy + Math.Clamp((satLossMultiplier * (0.5f + this.OverallHealthRatio)) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier, (satLossMultiplier * 0.5f) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier, (satLossMultiplier * 1f) * ConfigSystem.ConfigServer.SittingRelaxingSpeedModifier));
+                    }
+                }
                 
             }
-            return false;
+                return false;
         }
 
-        
+        public void ReceiveEnergyBySleeping(Entity entity)
+        {
+            // Skal måske fjerne "if (entity == null) return;"
+            if (entity == null) return;
+            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
+            if (sleepiness == null || !sleepiness.IsSleepingNow)
+            {
+                return;
+            }
+            if (sleepiness.LastHoursPassed <= 0f) return; // Only restore if time has passed
+
+            bool wasFull = this.CurrentEnergy >= this.MaxEnergy;
+            this.EnergyRestored = sleepiness.LastHoursPassed * ((this.MaxEnergy * (this.SatRatio / 10f)) * (ConfigSystem.ConfigServer.EnergyRestoredBySleepingModifier + Math.Clamp((this.SatRatio / 0.3f), 0f, 1f))); // Changed from: sleepiness.LastHoursPassed * ((this.MaxEnergy * (this.SleepRatio / 10f)) * (ConfigSystem.ConfigServer.EnergyRestoredBySleepingModifier + this.SleepRatio))
+            this.CurrentEnergy = Math.Clamp(this.CurrentEnergy + ((this.EnergyRestored + sleepiness.EnergyRestoredfromSleepiness) + ((this.EnergyRestored + sleepiness.EnergyRestoredfromSleepiness) * this.OverallHealthRatio)), 0f, this.MaxEnergy);
+            if ((double)this.CurrentEnergy > 0.6 * (double)this.MaxEnergy && this.SleepRatio > 0.7f && !sleepiness.IsOverloadedForEnergy && !this.Starving)
+            {
+                this.Invigorated = Math.Clamp(this.Invigorated + (((this.CurrentEnergy * (this.SatRatio / 10f)) * this.OverallHealthRatio) * this.SleepRatio), 0f, ConfigSystem.ConfigServer.MaxEnergy); // Changed from: this.Invigorated + (((this.CurrentEnergy * (this.SleepRatio / 10f)) * this.OverallHealthRatio) * this.SleepRatio
+            }
+            if (!wasFull)
+            {
+                this.EnergyLossDelay = Math.Max(this.EnergyLossDelay, 10f);
+            }
+
+        }
+
+
         public void UpdateEnergyBoosts()
         {
             this.UpdateEnergyStatBoosts();
@@ -520,23 +586,41 @@ namespace SleepNeed.Energy
                 return; 
             }
 
-
+            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
             if (ConfigSystem.ConfigServer.HungerLevelMatters) 
             {
-                if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                if (ConfigSystem.ConfigServer.EnableSleepiness && sleepiness != null)
                 {
-                    this.entity.Stats.Remove("hungerrate", "fatigue");
+                    if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || sleepiness.IsSleepingNow)
+                    {
+                        this.entity.Stats.Remove("hungerrate", "fatigue");
+                    }
+                    else if (this.EnergyRatio >= 0.7f)
+                    {
+                        this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.ConfigServer.HungerRateReductionFromHighEnergy * ((1f - 2f * (this.EnergyRatioHighEnergy))), false);
+                    }
+                    else if (this.EnergyRatio <= 0.3f)
+                    {
+                        this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.ConfigServer.HungerRateGainFromLowEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy))), false);
+                    }
                 }
-                else if (this.EnergyRatio >= 0.7f)
+                else
                 {
-                    this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.ConfigServer.HungerRateReductionFromHighEnergy * ((1f - 2f * (this.EnergyRatioHighEnergy))), false);
-                }
-                else if (this.EnergyRatio <= 0.3f)
-                {
-                    this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.ConfigServer.HungerRateGainFromLowEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy))), false);                    
+                    if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                    {
+                        this.entity.Stats.Remove("hungerrate", "fatigue");
+                    }
+                    else if (this.EnergyRatio >= 0.7f)
+                    {
+                        this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.ConfigServer.HungerRateReductionFromHighEnergy * ((1f - 2f * (this.EnergyRatioHighEnergy))), false);
+                    }
+                    else if (this.EnergyRatio <= 0.3f)
+                    {
+                        this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.ConfigServer.HungerRateGainFromLowEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy))), false);
+                    }
                 }
             }
-            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
+            
             if (sleepiness != null)
             {
                 bool isRefreshed = sleepiness.SleepinessRatio <= sleepiness.RefreshedThreshold;
@@ -930,34 +1014,18 @@ namespace SleepNeed.Energy
         }
 
 
-        // Token: 0x06000065 RID: 101 RVA: 0x00004BC8 File Offset: 0x00002DC8
+        
         private void SlowTick(float dt)
         {
             EntityBehaviorHunger hunger = this.entity.GetBehavior<EntityBehaviorHunger>();
             this.EnergyRate = this.entity.Stats.GetBlended("energyrate");
             this.EnergyRatio = (this.MaxEnergy > 0f) ? (this.CurrentEnergy / ConfigSystem.ConfigServer.MaxEnergy) : 0f;
             this.InvigoRatio = this.Invigorated / ConfigSystem.ConfigServer.MaxEnergy;
-            var healthBehavior = this.entity.GetBehavior<EntityBehaviorHealth>();
-            if (healthBehavior != null && healthBehavior.MaxHealthModifiers != null)
+            
+            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
+            if (sleepiness != null)
             {
-                healthBehavior.MaxHealthModifiers.TryGetValue("nutrientHealthMod", out this.NutrientHealthMod);
-                
-            }
-
-            if (ConfigSystem.ConfigServer.EnableNutrientFactor && this.InvigoRatio > 0f)
-            {
-                this.InvigoratedNutrientRatio = (this.InvigoRatio + (this.NutrientHealthMod / 12.5f)) / 2f;
-            }
-            else
-            {
-                this.InvigoratedNutrientRatio = this.InvigoRatio;
-            }
-
-
-            if (ConfigSystem.ConfigServer.EnableNutrientFactor)
-            {
-                this.InvigoratedNutrientRatioForHunger = (this.InvigoRatio + (this.NutrientHealthMod / 12.5f)) / 2f;
-                this.NutrientRatio = this.NutrientHealthMod / 12.5f;
+                this.SleepRatio = 1f - sleepiness.SleepinessRatio;
             }
 
             if (this.CurrentEnergy <= 0f)
@@ -972,6 +1040,11 @@ namespace SleepNeed.Energy
             if (hunger != null)
             {
                 this.SatRatio = hunger.Saturation / hunger.MaxSaturation;
+                if (ConfigSystem.ConfigServer.EnableNutrientFactor)
+                {
+                    this.NutrientRatio = ((hunger.FruitLevel / hunger.MaxSaturation) + (hunger.VegetableLevel / hunger.MaxSaturation) + (hunger.ProteinLevel / hunger.MaxSaturation) + (hunger.GrainLevel / hunger.MaxSaturation) + (hunger.DairyLevel / hunger.MaxSaturation)) / 5f;
+                }
+                
                 if (ConfigSystem.ConfigServer.HungerLevelMatters)
                 {
                     if (hunger.Saturation <= 0f)
@@ -1006,8 +1079,14 @@ namespace SleepNeed.Energy
                     this.entity.Stats.Remove(BtCore.Modid + ":energyrate", "hungryrate");
                 }
             }
-            this.HealthRatio = Math.Clamp(healthBehavior.Health, 0f, healthBehavior.BaseMaxHealth) / healthBehavior.BaseMaxHealth;
-            this.OverallHealthRatio = ((this.InvigoRatio + this.NutrientRatio) / 2f) * this.HealthRatio;
+
+            var healthBehavior = this.entity.GetBehavior<EntityBehaviorHealth>();
+            if (healthBehavior != null)
+            {
+                this.HealthRatio = Math.Clamp(healthBehavior.Health, 0f, healthBehavior.BaseMaxHealth) / healthBehavior.BaseMaxHealth;
+            }
+            
+            this.OverallHealthRatio = ((this.InvigoRatio + this.NutrientRatio) / 2f) * this.HealthRatio; // (this.InvigoRatio + this.NutrientRatio) / 2f)
             this.EnergyRatioHighEnergy = Math.Clamp(0.5f * (this.CurrentEnergy - (0.7f * ConfigSystem.ConfigServer.MaxEnergy)) / (0.3f * ConfigSystem.ConfigServer.MaxEnergy) + 0.5f, 0.5f, 1f);
             this.EnergyRatioHighEnergyPart2 = (1f - 2f * (1f - this.EnergyRatioHighEnergy));
             this.EnergyRatioLowEnergy = Math.Clamp((0.5f / (0.3f * ConfigSystem.ConfigServer.MaxEnergy)) * this.CurrentEnergy, 0f, 0.5f);
@@ -1025,15 +1104,15 @@ namespace SleepNeed.Energy
                 this.MaxEnergyModifier = 0f;
             }
             
-            if (ConfigSystem.ConfigServer.EnableEnergyloss && this.Energyloss > 0f)
-            {
-                this.entity.Stats.Set(BtCore.Modid + ":energyrate", "energyloss", this.Energyloss, false);
-                this.Energyloss = Math.Max(0f, this.Energyloss - 0.02f * this.EnergyRatio * (float)(((double)Math.Abs(this.CurrentEnergy - this.MaxEnergy) < 0.0001) ? 5 : 1));
-            }
-            else
-            {
-                this.entity.Stats.Remove(BtCore.Modid + ":energyrate", "energyloss");
-            }
+            // if (ConfigSystem.ConfigServer.EnableEnergyloss && this.Energyloss > 0f)
+            // {
+            //    this.entity.Stats.Set(BtCore.Modid + ":energyrate", "energyloss", this.Energyloss, false);
+            //    this.Energyloss = Math.Max(0f, this.Energyloss - 0.02f * this.EnergyRatio * (float)(((double)Math.Abs(this.CurrentEnergy - this.MaxEnergy) < 0.0001) ? 5 : 1));
+            // }
+            // else
+            // {
+            //    this.entity.Stats.Remove(BtCore.Modid + ":energyrate", "energyloss");
+            // }
 
             EntityBehaviorBodyTemperature tempBehavior = this.entity.GetBehavior<EntityBehaviorBodyTemperature>();
             if ((ConfigSystem.ConfigServer.BodyTemperatureMatters && tempBehavior != null) && (tempBehavior.CurBodyTemperature < tempBehavior.NormalBodyTemperature || tempBehavior.CurBodyTemperature > tempBehavior.NormalBodyTemperature + 8.0f))
@@ -1049,15 +1128,15 @@ namespace SleepNeed.Energy
             {
                 if (tempBehavior.CurBodyTemperature < tempBehavior.NormalBodyTemperature)
                 {
-                    this.TemperatureDifference = Math.Max(0f, (tempBehavior.NormalBodyTemperature - tempBehavior.CurBodyTemperature) * 6f);
+                    this.TemperatureDifference = Math.Max(0f, (tempBehavior.NormalBodyTemperature - tempBehavior.CurBodyTemperature));
 
                 }
                 else if (tempBehavior.CurBodyTemperature > tempBehavior.NormalBodyTemperature + 8.0f)
                 {
-                    this.TemperatureDifference = Math.Max(0f, (tempBehavior.CurBodyTemperature - tempBehavior.NormalBodyTemperature) * 15f);
+                    this.TemperatureDifference = Math.Max(0f, (tempBehavior.CurBodyTemperature - tempBehavior.NormalBodyTemperature) * 2f);
 
                 }
-                this.EnergyRateUpdate = (this.entity.World.Api.ModLoader.GetModSystem<RoomRegistry>(true).GetRoomForPosition(this.entity.Pos.AsBlockPos).ExitCount == 0) ? 0f : (((0.01f * this.TemperatureDifference * (ConfigSystem.ConfigServer.EnergyRatePerDegrees * (1f - this.OverallHealthRatio)))) / (1f + (float)Math.Exp((double)(-(double)this.TemperatureDifference))));
+                this.EnergyRateUpdate = (this.entity.World.Api.ModLoader.GetModSystem<RoomRegistry>(true).GetRoomForPosition(this.entity.Pos.AsBlockPos).ExitCount == 0) ? 0f : ((((ConfigSystem.ConfigServer.EnergyRatePerDegrees / 100f) - 1f) * this.TemperatureDifference) * Math.Max(0.1f, (1f - this.OverallHealthRatio)));
                 this.entity.Stats.Set(BtCore.Modid + ":energyrate", "resistheat", this.EnergyRateUpdate, false);
 
 
@@ -1068,6 +1147,19 @@ namespace SleepNeed.Energy
             }
             this.ReceiveEnergyBySleeping(this.entity);
             this.UpdateEnergyBoosts();
+
+            // adding a sprint prevent if fatigued
+            if (this.Fatigued && !this.wasFatigued)
+            {
+                this.wasFatigued = true;
+                GlobalConstants.SprintSpeedMultiplier = 1.0;
+            }
+            else if (!this.Fatigued && this.wasFatigued)
+            {
+                this.wasFatigued = false;
+                GlobalConstants.SprintSpeedMultiplier = EntityBehaviorEnergy._sprintSpeedMultiplier;
+            }
+
             if ((double)this.CurrentEnergy > 0.0)
             {
                 return;
@@ -1099,56 +1191,114 @@ namespace SleepNeed.Energy
         // Checks to apply penalty from dying.
         public override void OnEntityReceiveDamage(DamageSource damageSource, ref float damage)
         {
-            EntityBehaviorHealth health = this.entity.GetBehavior<EntityBehaviorHealth>();
-            if (damageSource.Type == EnumDamageType.Heal)
+            var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
+            if (ConfigSystem.ConfigServer.EnableSleepiness && sleepiness != null)
             {
-                this.EnergyLossDelay = 60f; 
-                this.CurrentEnergy = Math.Clamp(this.CurrentEnergy - ((ConfigSystem.ConfigServer.MaxEnergy / 10f) * ConfigSystem.ConfigServer.EnergyDrainFromHealingModifier), 0f, this.MaxEnergy);
+                if (damageSource.Source == EnumDamageSource.Revive)
+                {
+                    this.HasRevived = true;
+                    this.EnergyLossDelay = 60f;
+                    
+                    sleepiness.CurrentSleepinessLevel = sleepiness.EffectiveSleepinessCapacity * ConfigSystem.ConfigServer.SleepinessAfterRevival;
+                    if (ConfigSystem.ConfigServer.LoseInvigorationWhenDying)
+                    {
+                        this.Invigorated = 0f; // Lose all invigoration
+                    }
+                    this.Fatigued = false;
+                    
+                }
+                 
+            }
+            else
+            {
+                if (damageSource.Source == EnumDamageSource.Revive)
+                {
+                    this.HasRevived = true;
+                    this.EnergyLossDelay = 60f;
+                    if (ConfigSystem.ConfigServer.LoseInvigorationWhenDying)
+                    {
+                        this.Invigorated = 0f; // Lose all invigoration
+                    }
+                    this.Fatigued = false;
+                    
+                }
+            }
+
+            var healthBehavior = this.entity.GetBehavior<EntityBehaviorHealth>();
+            EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+            if (damageSource.Type == EnumDamageType.Heal && healthBehavior != null && tirednessBehavior != null)
+            {
+                this.EnergyLossDelay = 60f;
+                this.CurrentEnergy = Math.Clamp(this.CurrentEnergy - ((this.CurrentEnergy * (((damage / healthBehavior.MaxHealth) + (1f - this.HealthRatio)) / 2f)) * ConfigSystem.ConfigServer.EnergyDrainFromHealingModifier), 0f, this.MaxEnergy);
                 if (ConfigSystem.ConfigServer.DrainInvigorationWhenHealing)
                 {
                     this.Invigorated = Math.Clamp(this.Invigorated - ((ConfigSystem.ConfigServer.MaxEnergy / 5f) * ConfigSystem.ConfigServer.InvigorationDrainFromHealingModifier), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                    tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
                 }
-                 
+
             }
-            
-            if (damageSource.Source == EnumDamageSource.Revive)
-            {
-                this.EnergyLossDelay = 60f; 
-                this.CurrentEnergy = this.MaxEnergy / 2f; // Set energy to half
-                if (ConfigSystem.ConfigServer.LoseInvigorationWhenDying)
-                {
-                    this.Invigorated = 0f; // Lose all invigoration
-                }
-                 
-            }
-            
             else
             {
                 
-                if (damage > 0f)
+                if (damage > 0f && healthBehavior != null && tirednessBehavior != null)
                 {
                     
                     if (!this.Starving && !this.Fatigued)
                     {
                         this.EnergyLossDelay = 60f; 
-                        this.CurrentEnergy = Math.Clamp(this.CurrentEnergy - ((this.CurrentEnergy * ConfigSystem.ConfigServer.EnergyDrainFromDamageMultiplier) + 10f), 0f, this.MaxEnergy);
-                        this.Invigorated = Math.Clamp(this.Invigorated - (this.Invigorated * (ConfigSystem.ConfigServer.InvigoratedDrainFromDamageMultiplier + 0.05f)), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                        this.CurrentEnergy = Math.Clamp(this.CurrentEnergy - ((this.CurrentEnergy * (damage / healthBehavior.MaxHealth)) * ConfigSystem.ConfigServer.EnergyDrainFromDamageMultiplier), 0f, this.MaxEnergy); 
+                        this.Invigorated = Math.Clamp(this.Invigorated - ((this.Invigorated * (2f * (damage / healthBehavior.MaxHealth))) * ConfigSystem.ConfigServer.InvigoratedDrainFromDamageMultiplier), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                        tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
                     }
                     else if (this.Starving && !this.Fatigued)
                     {
                         this.EnergyLossDelay = 60f; 
-                        this.CurrentEnergy = Math.Clamp(this.CurrentEnergy - ((this.CurrentEnergy * ConfigSystem.ConfigServer.EnergyDrainFromDamageMultiplier) + 15f), 0f, this.MaxEnergy);
-                        this.Invigorated = Math.Clamp(this.Invigorated - (this.Invigorated * (ConfigSystem.ConfigServer.InvigoratedDrainFromDamageMultiplier + 10f)), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                        this.CurrentEnergy = Math.Clamp(this.CurrentEnergy - ((this.MaxEnergy * (damage / healthBehavior.MaxHealth)) * ConfigSystem.ConfigServer.EnergyDrainFromDamageMultiplier), 0f, this.MaxEnergy);
+                        this.Invigorated = Math.Clamp(this.Invigorated - ((this.MaxEnergy * (2f * (damage / healthBehavior.MaxHealth))) * ConfigSystem.ConfigServer.InvigoratedDrainFromDamageMultiplier), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                        tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
                     }
                     else if (!this.Starving && this.Fatigued)
                     {
-                        this.EnergyLossDelay = 60f; 
-                        this.Invigorated = Math.Clamp(this.Invigorated - (this.Invigorated * (ConfigSystem.ConfigServer.InvigoratedDrainFromDamageMultiplier + 0.15f)), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                        this.EnergyLossDelay = 60f;
+                        this.Invigorated = 0f;
+                        tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + 10f);
                     }
                     else if (this.Starving && this.Fatigued)
                     {
                         this.EnergyLossDelay = 60f; 
-                        this.Invigorated = Math.Clamp(this.Invigorated - (this.Invigorated * (ConfigSystem.ConfigServer.InvigoratedDrainFromDamageMultiplier + 0.35f)), 0f, ConfigSystem.ConfigServer.MaxEnergy);
+                        this.Invigorated = 0f;
+                        tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + 10f);
+                        EntityBehaviorHunger nutrition = this.entity.GetBehavior<EntityBehaviorHunger>();
+                        if (nutrition != null)
+                        {
+                            // Fruit
+                            if (nutrition.FruitLevel > 0f)
+                            {
+                                nutrition.FruitLevel = Math.Clamp(nutrition.FruitLevel - (nutrition.FruitLevel * (damage / healthBehavior.MaxHealth)), 0f, nutrition.MaxSaturation);
+                            }
+                            // Vegetable
+                            if (nutrition.VegetableLevel > 0f)
+                            {
+                                nutrition.VegetableLevel = Math.Clamp(nutrition.VegetableLevel - (nutrition.VegetableLevel * (damage / healthBehavior.MaxHealth)), 0f, nutrition.MaxSaturation);
+                            }
+                            // Protein
+                            if (nutrition.ProteinLevel > 0f)
+                            {
+                                nutrition.ProteinLevel = Math.Clamp(nutrition.ProteinLevel - (nutrition.ProteinLevel * (damage / healthBehavior.MaxHealth)), 0f, nutrition.MaxSaturation);
+                            }
+                            // Grain
+                            if (nutrition.GrainLevel > 0f)
+                            {
+                                nutrition.GrainLevel = Math.Clamp(nutrition.GrainLevel - (nutrition.GrainLevel * (damage / healthBehavior.MaxHealth)), 0f, nutrition.MaxSaturation);
+                            }
+                            // Dairy
+                            if (nutrition.DairyLevel > 0f)
+                            {
+                                nutrition.DairyLevel = Math.Clamp(nutrition.DairyLevel - (nutrition.DairyLevel * (damage / healthBehavior.MaxHealth)), 0f, nutrition.MaxSaturation);
+                            }
+                            
+                        }
+                        
                     }
                     
 
@@ -1164,7 +1314,10 @@ namespace SleepNeed.Energy
 
         private EntityAgent _entityAgent;
 
+        private bool wasFatigued;
 
+        private static double _sprintSpeedMultiplier;
+        private bool HasRevived = false;
         public float EnergyJumpBoostStat
         {
             get
@@ -1212,10 +1365,6 @@ namespace SleepNeed.Energy
         private float NutrientHealthMod;
 
         private float HealthRatio;
-
-        private float InvigoratedNutrientRatio;
-
-        private float InvigoratedNutrientRatioForHunger;
 
         public float SatRatio;
 

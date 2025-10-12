@@ -46,6 +46,12 @@ namespace SleepNeed.Systems
                 api.ChatCommands.Parsers.OptionalWord("playerName"),
                 api.ChatCommands.Parsers.Float("invigorationValue")
             }).HandleWith((TextCommandCallingArgs args) => BtCommands.OnSetInvigorationCommand(api, args));
+            // Added Tiredness command
+            api.ChatCommands.Create("setTiredness").WithDescription("Sets the player's tiredness level.").RequiresPrivilege("controlserver").WithArgs(new ICommandArgumentParser[]
+            {
+                api.ChatCommands.Parsers.OptionalWord("playerName"),
+                api.ChatCommands.Parsers.Float("tirednessValue")
+            }).HandleWith((TextCommandCallingArgs args) => BtCommands.OnSetTirednessCommand(api, args));
         }
 
         private static TextCommandResult OnResetStatsCommand(ICoreServerAPI api, TextCommandCallingArgs args)
@@ -177,6 +183,38 @@ namespace SleepNeed.Systems
             sleepinessBehavior.CurrentSleepinessLevel = newLevel;
             DefaultInterpolatedStringHandler defaultInterpolatedStringHandler = new DefaultInterpolatedStringHandler(31, 2);
             defaultInterpolatedStringHandler.AppendLiteral("Sleepiness set to ");
+            defaultInterpolatedStringHandler.AppendFormatted<float>(newLevel);
+            defaultInterpolatedStringHandler.AppendLiteral(" for player '");
+            defaultInterpolatedStringHandler.AppendFormatted(targetPlayer.PlayerName);
+            defaultInterpolatedStringHandler.AppendLiteral("'.");
+            return TextCommandResult.Success(defaultInterpolatedStringHandler.ToStringAndClear(), null);
+        }
+
+        private static TextCommandResult OnSetTirednessCommand(ICoreServerAPI api, TextCommandCallingArgs args)
+        {
+            string playerName = args[0] as string;
+            float newLevel = (float)args[1];
+            IServerPlayer targetPlayer;
+            if (string.IsNullOrEmpty(playerName))
+            {
+                targetPlayer = (args.Caller.Player as IServerPlayer);
+            }
+            else
+            {
+                targetPlayer = BtCommands.GetPlayerByName(api, playerName);
+                if (targetPlayer == null)
+                {
+                    return TextCommandResult.Error("Player '" + playerName + "' not found.", "");
+                }
+            }
+            EntityBehaviorTiredness tirednessBehavior = (targetPlayer != null) ? targetPlayer.Entity.GetBehavior<EntityBehaviorTiredness>() : null;
+            if (tirednessBehavior == null)
+            {
+                return TextCommandResult.Error("Tiredness behavior not found.", "");
+            }
+            tirednessBehavior.Tiredness = newLevel;
+            DefaultInterpolatedStringHandler defaultInterpolatedStringHandler = new DefaultInterpolatedStringHandler(31, 2);
+            defaultInterpolatedStringHandler.AppendLiteral("Tiredness set to ");
             defaultInterpolatedStringHandler.AppendFormatted<float>(newLevel);
             defaultInterpolatedStringHandler.AppendLiteral(" for player '");
             defaultInterpolatedStringHandler.AppendFormatted(targetPlayer.PlayerName);
