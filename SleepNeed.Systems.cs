@@ -582,19 +582,21 @@ namespace SleepNeed.Systems
             HarmonyPatches.HarmonyInstance.Patch(typeof(CharacterExtraDialogs).GetMethod("UpdateStats", BindingFlags.Instance | BindingFlags.NonPublic), null, typeof(CharacterExtraDialogs_UpdateStats_Patch).GetMethod("Postfix"), null, null);
             HarmonyPatches.HarmonyInstance.Patch(typeof(CharacterExtraDialogs).GetMethod("UpdateStats", BindingFlags.Instance | BindingFlags.NonPublic), null, typeof(CharacterExtraDialogs_UpdateStatBars_Patch).GetMethod("Postfix"), null, null);
             // Patch to ensure that player can jump lower than a block.
-            MethodInfo targetDoApplyMethod = AccessTools.Method(typeof(PModuleOnGround), "DoApply", new Type[] { typeof(float), typeof(Entity), typeof(EntityPos), typeof(EntityControls) } );
-            if (targetDoApplyMethod == null)
+            if (ConfigSystem.ConfigServer.EnableEnergyDependedJumpHeight)
             {
-                api.Logger.Error("Harmony Patch Error: Could not find target method 'PModuleOnGround.DoApply'. EnergyJumpFactor patch failed!");
-                return;
+                MethodInfo targetDoApplyMethod = AccessTools.Method(typeof(PModuleOnGround), "DoApply", new Type[] { typeof(float), typeof(Entity), typeof(EntityPos), typeof(EntityControls) });
+                if (targetDoApplyMethod == null)
+                {
+                    api.Logger.Error("Harmony Patch Error: Could not find target method 'PModuleOnGround.DoApply'. EnergyJumpFactor patch failed!");
+                    return;
+                }
+                HarmonyPatches.HarmonyInstance.Patch
+                (
+                    original: targetDoApplyMethod,
+                    transpiler: new HarmonyMethod(typeof(EnergyJumpFactorPatch), nameof(EnergyJumpFactorPatch.JumpFactorTranspilerMethod))
+                );
+                api.Logger.Notification("All Harmony patches applied successfully, including EnergyJumpFactorPatch!");
             }
-            HarmonyPatches.HarmonyInstance.Patch
-            (
-                original: targetDoApplyMethod,
-                transpiler: new HarmonyMethod(typeof(EnergyJumpFactorPatch), nameof(EnergyJumpFactorPatch.JumpFactorTranspilerMethod))
-            );
-            api.Logger.Notification("All Harmony patches applied successfully, including EnergyJumpFactorPatch!");
-
             // Patch to clamp the saturation to 0.1f
             if (ConfigSystem.ConfigServer.OnlyDieFromNoEnergy)
             {
