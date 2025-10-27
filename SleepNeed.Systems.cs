@@ -70,7 +70,7 @@ namespace SleepNeed.Systems
                     return TextCommandResult.Error("Player '" + playerName + "' not found.", "");
                 }
             }
-            ConfigSystem.ResetModBoosts((targetPlayer != null) ? targetPlayer.Entity : null);
+            ConfigSystem.DisableStatChanges((targetPlayer != null) ? targetPlayer.Entity : null);
             return TextCommandResult.Success("Energy stats reset for player '" + targetPlayer.PlayerName + "'.", null);
         }
 
@@ -265,7 +265,7 @@ namespace SleepNeed.Systems
         
         private void OnPlayerJoin(EntityPlayer player)
         {
-            ConfigSystem.ResetModBoosts(player);
+            ConfigSystem.DisableStatChanges(player);
         }
 
         private void AddEntityBehaviors(Entity entity)
@@ -391,7 +391,7 @@ namespace SleepNeed.Systems
             clientChannel.SendPacket<SyncedConfig>(ModConfig.ReadConfig<SyncedConfig>(ConfigSystem._api, BtConstants.SyncedConfigName));
         }
 
-        public static void ResetModBoosts(EntityPlayer player)
+        public static void DisableStatChanges(EntityPlayer player)
         {
             if (player == null)
             {
@@ -433,7 +433,7 @@ namespace SleepNeed.Systems
             BtCore.Logger.Warning("Reloading synced config");
             ModConfig.WriteConfig<SyncedConfig>(ConfigSystem._api, BtConstants.SyncedConfigName, packet);
             ConfigSystem.SyncedConfig = packet.Clone();
-            if (ConfigSystem.SyncedConfig.ResetModBoosts)
+            if (ConfigSystem.SyncedConfig.DisableStatChanges)
             {
                 ICoreClientAPI coreClientAPI = ConfigSystem._api as ICoreClientAPI;
                 EntityPlayer player;
@@ -454,8 +454,8 @@ namespace SleepNeed.Systems
                         player = ((player2 != null) ? player2.Entity : null);
                     }
                 }
-                ConfigSystem.ResetModBoosts(player);
-                ConfigSystem.SyncedConfig.ResetModBoosts = false;
+                ConfigSystem.DisableStatChanges(player);
+                // ConfigSystem.SyncedConfig.DisableStatChanges = false;
                 ModConfig.WriteConfig<SyncedConfig>(ConfigSystem._api, BtConstants.SyncedConfigName, ConfigSystem.SyncedConfig);
             }
             ICoreAPI api = ConfigSystem._api;

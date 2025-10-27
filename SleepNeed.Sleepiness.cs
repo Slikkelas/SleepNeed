@@ -39,7 +39,7 @@ namespace SleepNeed.Sleepiness
                 {
                     sleepinessTree.SetFloat("sleepinesscapacityoverload", sleepinesscapacityOverload);
                 }
-                this.entity.WatchedAttributes.MarkPathDirty(this.AttributeKey);
+                
                 return sleepinesscapacityOverload;
             }
         }
@@ -54,7 +54,7 @@ namespace SleepNeed.Sleepiness
                 {
                     sleepinessTree.SetFloat("sleepinesscapacity", sleepinessCapacity);
                 }
-                this.entity.WatchedAttributes.MarkPathDirty(this.AttributeKey);
+                
                 return sleepinessCapacity;
             }
         }
@@ -96,7 +96,7 @@ namespace SleepNeed.Sleepiness
                 {
                     sleepinessTree.SetFloat("sleepinesscapacitymodifier", value);
                 }
-                this.entity.WatchedAttributes.MarkPathDirty(this.AttributeKey);
+                
             }
         }
 
@@ -110,7 +110,7 @@ namespace SleepNeed.Sleepiness
                 {
                     sleepinessTree.SetFloat("effectivesleepinesscapacity", effectiveSleepinessCapacity);
                 }
-                this.entity.WatchedAttributes.MarkPathDirty(this.AttributeKey);
+                
                 return effectiveSleepinessCapacity;
             
             }
@@ -148,6 +148,15 @@ namespace SleepNeed.Sleepiness
 
 
         }
+        
+        public override void OnGameTick(float deltaTime)
+        {
+            if (this.HasRevivedSleepiness)
+            {
+                this.CurrentSleepinessLevel = this.EffectiveSleepinessCapacity * ConfigSystem.ConfigServer.SleepinessAfterRevival;
+            }
+        }
+
         private void SlowTick(float dt)
         {
             EntityPlayer player = this.entity as EntityPlayer;
@@ -162,15 +171,15 @@ namespace SleepNeed.Sleepiness
 
             if (wasSleeping && !isSleeping)
             {
-                _justWokeUp = true;
-                _wakeDelayTimer = 0f;
+                this._justWokeUp = true;
+                this._wakeDelayTimer = 0f;
             }
 
             // Handle delay after waking up
-            if (_justWokeUp)
+            if (this._justWokeUp || this.HasRevivedSleepiness)
             {
-                _wakeDelayTimer += dt;
-                if (_wakeDelayTimer < WakeDelaySeconds)
+                this._wakeDelayTimer += dt;
+                if (this._wakeDelayTimer < WakeDelaySeconds)
                 {
                     // Skip the "awake" logic during the delay
                     this._hoursTotal = this.entity.World.Calendar.TotalHours;
@@ -178,7 +187,8 @@ namespace SleepNeed.Sleepiness
                 }
                 else
                 {
-                    _justWokeUp = false; // Delay finished, resume normal logic
+                    this._justWokeUp = false; // Delay finished, resume normal logic
+                    this.HasRevivedSleepiness = false;
                 }
             }
             
@@ -267,9 +277,11 @@ namespace SleepNeed.Sleepiness
                 this.IsOverloadedForEnergy = false;
                 if (this.SleepinessRatio <= this.RefreshedThreshold)
                 {
+                    if (!ConfigSystem.ConfigServer.DisableStatChanges)
+                    {
+                        this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", ConfigSystem.ConfigServer.SleepinessRangedWeaponsAccDebuff * 0.385f, false);
+                    }
                     
-                    
-                    this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", ConfigSystem.ConfigServer.SleepinessRangedWeaponsAccDebuff * 0.385f, false);
                     if (ConfigSystem.ConfigServer.EnableEnergy)
                     {
                         var energy = entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
@@ -280,9 +292,9 @@ namespace SleepNeed.Sleepiness
                             
                         }
                     }
-                    
+                    this._sleepinessStatsRemove = false;
                 }
-                else
+                else if (this.SleepinessRatio > this.RefreshedThreshold && !this._sleepinessStatsRemove)
                 {
                     this.entity.Stats.Remove("rangedWeaponsAcc", "sleepinessfull");
                     this.entity.Stats.Remove("walkspeed", "sleepinessfull");
@@ -291,16 +303,21 @@ namespace SleepNeed.Sleepiness
                     {
                         this.entity.Stats.Remove(BtCore.Modid + ":energyrate", "sleepinessfull");
                     }
-                    
+                    this._sleepinessStatsRemove = true;
                 }
                 
             }
             else if (this.IsOverloaded())
             {
                 this.IsOverloadedForEnergy = true;
+                this._sleepinessStatsRemove = false;
                 float energyrateSleepinessFactor = ((ConfigSystem.ConfigServer.SleepinessEnergyrateDebuff / 100f) - 1f) * this.SleepinessOverloadRatio;
+
+                if (!ConfigSystem.SyncedConfig.DisableStatChanges)
+                {
+                    this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", this.RangedWeaponsAccMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                }
                 
-                this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", this.RangedWeaponsAccMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
                 
                 if (ConfigSystem.ConfigServer.EnableEnergy)
                 {
@@ -308,8 +325,12 @@ namespace SleepNeed.Sleepiness
                 }
                 else
                 {
-                    this.entity.Stats.Set("walkspeed", "sleepinessfull", this.WalkSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
-                    this.entity.Stats.Set("rangedWeaponsSpeed", "sleepinessfull", this.RangedWeaponsSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                    if (!ConfigSystem.SyncedConfig.DisableStatChanges)
+                    {
+                        this.entity.Stats.Set("walkspeed", "sleepinessfull", this.WalkSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                        this.entity.Stats.Set("rangedWeaponsSpeed", "sleepinessfull", this.RangedWeaponsSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                    }
+                    
                 }
 
                     
@@ -364,7 +385,23 @@ namespace SleepNeed.Sleepiness
             this.entity.World.UnregisterGameTickListener(this._sleepinesslistenerId);
         }
 
+        public override void OnEntityReceiveDamage(DamageSource damageSource, ref float damage)
+        {
+            if (damageSource.Source == EnumDamageSource.Revive)
+            {
+                this.HasRevivedSleepiness = true;
+            }
 
+            EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+            if (damageSource.Type == EnumDamageType.Heal && tirednessBehavior != null)
+            {
+                tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
+                if (ConfigSystem.ConfigServer.GainSleepinessWhenHealing)
+                {
+                    this.CurrentSleepinessLevel += (damage / 2f) * ConfigSystem.ConfigServer.GainSleepinessWhenHealingModifier; // Add config to let the player choose the sleepiness gain rate.
+                }
+            }
+        }
 
 
         private ITreeAttribute _sleepinessTree;
@@ -372,6 +409,10 @@ namespace SleepNeed.Sleepiness
         private ICoreAPI _api;
 
         public Random Rand;
+
+        private bool _sleepinessStatsRemove;
+
+        private bool HasRevivedSleepiness;
 
         private float SleepinessFactor;
 
@@ -396,9 +437,11 @@ namespace SleepNeed.Sleepiness
 
         private float _hoursPerDay;
 
+        private bool sleepinessIsSet;
+
         private bool _justWokeUp = false;
         private float _wakeDelayTimer = 0f;
-        private const float WakeDelaySeconds = 5f; // Set your desired delay in seconds
+        private float WakeDelaySeconds { get; } = ConfigSystem.ConfigServer.DelaySeconds; // Set your desired delay in seconds
 
         private long _sleepinesslistenerId;
 
