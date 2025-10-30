@@ -248,7 +248,7 @@ namespace SleepNeed.Config
         public string Energy_From_Sleep_When_Refreshed_Modifier { get; set; } = "           REFRESHED SLEEP                 -  ENERGY GAIN            🗘 (1.35)         -  When sleepiness is fully drained, and you are still sleeping, you then gain additional energy while sleeping. (1.35 = 35% increase in energy restored)";
         public float EnergyFromSleepWhenRefreshedModifier { get; set; } = 1.35f; // The factor by which the energy is regenerated from sleeping when sleepiness is fully drained.
         public string Delay_Seconds { get; set; } = "                                       DELAY SLEEPINESS                -  TIME                   🗘 (5)            -  This is used to delay sleepiness gain after waking up for X amount of real life seconds.";
-        public float DelaySeconds { get; set; } = 5f;
+        public float DelaySeconds { get; set; } = 15f;
         public string Disable_Behaviors { get; set; } = "           ----------------------  DISABLE MOD BEHAVIORS  ---------------------                                -  Here you can turn off Energy or Sleepiness and only keep the behavior you want. You can also turn off all stat changes if you don't want the mod touching any stats at all.";
         
 
