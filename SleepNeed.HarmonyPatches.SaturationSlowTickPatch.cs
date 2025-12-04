@@ -13,35 +13,47 @@ using Vintagestory.GameContent;
 
 namespace SleepNeed.HarmonyPatches.SaturationSlowTickPatch
 {
+    [HarmonyPatch(typeof(EntityBehaviorHunger), "SlowTick")]
     public static class SaturationSlowTickPatch
     {
-        public static IEnumerable<CodeInstruction> HungerDamageTranspilerMethod(IEnumerable<CodeInstruction> instructions)
+        // Prefix: Kører FØR den originale SlowTick metode
+        // __state bruges til at sende data fra Prefix til Postfix
+        public static void Prefix(EntityBehaviorHunger __instance, out float __state)
         {
-            List<CodeInstruction> codes = new List<CodeInstruction>(instructions);
+            __state = -1f; // Default "flag" værdi (betyder "vi gjorde intet")
 
-            // We will search for the starvation check pattern as seen in your IL and C# code:
-            // 1. call to 'get_Saturation'
-            // 2. ldc.r4 0f
-            // 3. bgt.un.s (a branch instruction)
-
-            for (int i = 0; i < codes.Count; i++)
+            if (ConfigSystem.SyncedConfig == null)
             {
-                // Look for the instruction that loads the constant 0f.
-                if (codes[i].opcode == OpCodes.Ldc_R4 && (float)codes[i].operand == 0f)
+                return;
+            }
+            else if (ConfigSystem.SyncedConfig.EnableEnergy && ConfigSystem.SyncedConfig.OnlyDieFromNoEnergy)
+            {
+                // 2. Tjek om spilleren faktisk sulter (Saturation <= 0)
+                if (__instance.Saturation <= 0f)
                 {
-                    // Now, check the surrounding instructions to confirm this is the starvation check.
-                    // The previous instruction should be the call to get_Saturation().
-                    if (i > 0 && codes[i - 1].opcode == OpCodes.Call && codes[i - 1].operand is MethodInfo prevMethod && prevMethod.Name == "get_Saturation")
-                    {
-                        // Found the correct instruction. We'll change the operand to -1f.
-                        codes[i].operand = -1f;
-                        Console.WriteLine("Successfully patched SlowTick to change starvation damage threshold to -1f!");
-                        break; // We assume only one such constant to patch.
-                    }
+                    // Gem den rigtige værdi (fx 0, eller -5 hvis en anden mod tillader negativ mæthed)
+                    __state = __instance.Saturation;
+
+                    // 3. TRICKY DEL:
+                    // Vi sætter mætheden til en mikroskopisk værdi over 0.
+                    // Dette snyder den originale metode til at tro, at vi ikke sulter,
+                    // så den hopper over "if (Saturation <= 0)" blokken og dermed skades-kaldet.
+                    __instance.Saturation = 0.0001f;
                 }
             }
+        }
 
-            return codes;
+        // Postfix: Kører EFTER den originale metode er færdig
+        public static void Postfix(EntityBehaviorHunger __instance, float __state)
+        {
+            // Hvis vi ændrede værdien i Prefix (dvs. state er forskellig fra -1)
+            if (__state != -1f)
+            {
+                // 4. Gendan den rigtige værdi med det samme!
+                // Da dette sker i samme tick, og før data sendes til klienten,
+                // vil spilleren aldrig se "0.0001" på sin bar, og logikken forbliver intakt.
+                __instance.Saturation = __state;
+            }
         }
     }
 }

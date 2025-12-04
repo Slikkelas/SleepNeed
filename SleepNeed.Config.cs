@@ -22,7 +22,6 @@ namespace SleepNeed.Config
     {
         public string Energy_Bar_X { get; set; } = "                                        POSITION X-AXIS (ENERGY BAR)            -  Enter a positive value in increments at +2 to move the bar to the right. Enter a negative value ´to move the bar to the left";
         public float EnergyBarX { get; set; }
-
         public string Energy_Bar_Y { get; set; } = "                                        POSITION Y-AXIS (ENERGY BAR)            -  Enter a positive value in increments at +2 to move the bar down. Enter a negative value ´to move the bar upwards";
         public float EnergyBarY { get; set; }
         public string Sleepiness_Bar_X { get; set; } = "                                    POSITION X-AXIS (SLEEPINESS BAR)        -  Enter a positive value in increments at +2 to move the bar to the right. Enter a negative value ´to move the bar to the left";
@@ -39,12 +38,11 @@ namespace SleepNeed.Config
         public float HideSleepinessBarAt { get; set; }
         public string Energy_Bar_Color { get; set; } = "                                    COLOR                                   -  Change the color of the HUD bars, by entering a new Hexidecimal ¨HEX¨ value of a color you'd like. Google it when in doubt how to, and it dosn't matter if it's upper or lower case letters in the config file.";
         public string EnergyBarColor { get; set; } = ModGuiStyle.EnergyBarColor.ToHex();
-
         public string SleepinessBarColor { get; set; } = ModGuiStyle.SleepinessBarColor.ToHex();
-
         public string SleepinessOverloadColor { get; set; } = ModGuiStyle.SleepinessOverloadColor.ToHex();
+        public string InvigorationBarColor { get; set; } = ModGuiStyle.InvigorationBarColor.ToHex();
 
-        
+
         public ConfigClient(ICoreAPI api, ConfigClient previousConfig = null)
         {
             if (previousConfig == null)
@@ -59,6 +57,8 @@ namespace SleepNeed.Config
             this.SleepinessBarFillDirectionRightToLeft = previousConfig.SleepinessBarFillDirectionRightToLeft;
             this.EnergyBarColor = previousConfig.EnergyBarColor;
             this.SleepinessBarColor = previousConfig.SleepinessBarColor;
+            this.SleepinessOverloadColor = previousConfig.SleepinessOverloadColor;
+            this.InvigorationBarColor = previousConfig.InvigorationBarColor;
             this.SleepinessBarVisible = previousConfig.SleepinessBarVisible;
             this.HideSleepinessBarAt = previousConfig.HideSleepinessBarAt;
             
@@ -66,7 +66,7 @@ namespace SleepNeed.Config
     }
 
     
-    public class ConfigServer : SyncedConfig
+    public class ConfigServer : IModConfig
     {
         // Energy
         public string Energy_Category { get; set; } = "▁   ▂   ▃   ▄   ▅   ▆   ▇   █ - 🏃 - ENERGY - 🏃 - █    ▇   ▆   ▅   ▄   ▃   ▂   ▁";
@@ -93,6 +93,8 @@ namespace SleepNeed.Config
         public float AttackEnergyCostModifier { get; set; } = 1.0f; // Modifier for attack energy cost, 1.0f means no change, 0.5f means half the energy cost, 2.0f means double the energy cost.
         public string Sitting_Relaxing_Speed_Modifier { get; set; } = "                     RELAXING                        -  ENERGY GAIN SPEED      🗘 (1.0)          -  Modifier for how fast energy regenerates when sitting. Example: 1.0 means no change, 0.5 means half the energy cost, 2.0 means double the energy cost. (1.0 = 100%, 0.5 = 50%)";
         public float SittingRelaxingSpeedModifier { get; set; } = 1.0f; // Modifier for how fast energy regenerates when sitting.
+        public string WaterSpa_Relaxing_Speed_Modifier { get; set; } = "                    RELAXING SPA                    -  ENERGY GAIN SPEED      🗘 (1.45)         -  Modifier for how fast energy regenerates when sitting in water when outside temperature is above 20C. Example: 1.0 means no change, 0.5 means half the energy cost, 2.0 means double the energy cost. (1.45 = 145%, 0.5 = 50%)";
+        public float WaterSpaRelaxingSpeedModifier { get; set; } = 1.45f; // Modifier for how fast energy regenerates when sitting.
         public string Drain_Energy_When_Healing { get; set; } = "                           HEALING DRAINS                  -  MOD MECHANIC           🗘 (false)        -  Should energy drain when healing? (This is only healing from sources, dosn't affect Healing Regeneration. If SlowTox is enabled, energy will tank when accumulated healing kicks in) Default = false";
         public bool DrainEnergyWhenHealing { get; set; } = false;
         public string Energy_Drain_From_Healing_Modifier { get; set; } = "                  HEALING DRAINS                  -  ENERGY COST            🗘 (1.0)          -  Modifier for the energy cost from using healing remedies like poultice. Yes it takes a toll on you getting hurt....";
@@ -106,6 +108,8 @@ namespace SleepNeed.Config
         public bool EnableAdrenalineRush { get; set; } = true;
         public string Adrenaline_Duration { get; set; } = "                                 ADRENALINE DURATION             -  TIME                   🗘 (60)           -  For how long in real life seconds should the accumulated energy drain be delayed after taking attack damage?";
         public float AdrenalineDuration { get; set; } = 60f;
+        public string Disable_BlockBreake_When_Sitting { get; set; } = "                    SITTING BLOCKBREAKE DISABLED    -  MOD MECHANIC           🗘 (true)         -  If you are sitting down aka. relaxing, then you can't breake blocks if this is enabled true. This is because you shouldn't be able to gain energy while doing work.";
+        public bool DisableBlockBreakeWhenSitting { get; set; } = true;
         public string Hunger_Level_Matters { get; set; } = "                                HUNGER MATTERS                  -  MOD MECHANIC           🗘 (true)         -  This makes hunger/satiety a part of the energy mechanic. An example is, that low satiety increases the energy rate so you consume more energy when being hungry. Look at description to understand what hunger affects.";
         public bool HungerLevelMatters { get; set; } = true; // Should hunger have an impact on the energy rate?
         public string Only_Die_From_No_Energy { get; set; } = "                             HUNGER REWORK                   -  GAME MECHANIC          🗘 (true)         -  If enabled the player dosn't take damage when the hunger-bar reaches 0. Instead the player is starving and consuming way more energy, nutrition and invigoration. When nutrition, hunger and energy is 0, you die....";
@@ -133,8 +137,10 @@ namespace SleepNeed.Config
         public float HungerEnergyrateDebuffStartRatio { get; set; } = 0.3f; // When should hunger matter? 0.3 = at 30% satiety and downwards.
         public string Body_Temperature_Matters { get; set; } = "                            TEMPERATURE MATTERS             -  MOD MECHANIC           🗘 (true)         -  This will make the body temperature of the player affect the energy rate, so if the player is too cold or too hot, they will have increased energy rate and will drain energy faster. (< 37, > 37.8)";
         public bool BodyTemperatureMatters { get; set; } = true; // Enable the body temperature matters, which will make the body temperature of the player matter for the energy level, so if the player is too cold or too hot, they will have increased energy rate and will drain energy faster.
-        public string Energy_Rate_Per_Degrees { get; set; } = "                             TEMPERATURE DEBUFF              -  STAT CHANGE            🗘 (450)          -  This is the increased energy rate pr. degree C when being cold. If body temp is above 37.8 C then this value is doubled. This is because body temp above normal is very serious in real life and is rare in the game to ever happen. (450 = 450% pr. degree)";
-        public float EnergyRatePerDegrees { get; set; } = 450f; // 45 = 450% So energy rate will increase 450% per degree of body temp outside normal core temp.
+        public string Energy_Rate_Per_Degrees { get; set; } = "                             TEMPERATURE DEBUFF              -  STAT CHANGE            🗘 (250)          -  This is the increased energy rate pr. degree C when being cold. If body temp is above 37.8 C then this value is doubled. This is because body temp above normal is very serious in real life and is rare in the game to ever happen. (250 = 250% pr. degree)";
+        public float EnergyRatePerDegrees { get; set; } = 250f; // 45 = 450% So energy rate will increase 450% per degree of body temp outside normal core temp.
+        public string Sprinting_Warmth { get; set; } = "                                    TEMPERATURE SPRINTING/JUMPING   -  STAT CHANGE            🗘 (0.06)         -  Sprinting or jumping while freezing raises the body temperature by (0.06) degrees pr. second";
+        public float SprintingWarmth { get; set; } = 0.06f;
         public string Sleepiness_Energy_Rate_Debuff { get; set; } = "                       SLEEPINESS DEBUFF               -  STAT CHANGE            🗘 (3000)         -  When in an overloaded state of sleepiness, how much should the increase in energy rate be, when fully overloaded? (Set the final percentage; 3000 = 3000%) :: This is gradually increased from overload starts till it's full. See settings for sleepiness to get a hint on how overload is set.";
         public float SleepinessEnergyrateDebuff { get; set; } = 3000f; // Put in the wanted end percentage. 3000 = 3000%
         public string Energy_Stats_Settings { get; set; } = "       ----------------------  STAT CHANGES  ----------------------                      -  Stats affected by the current energy level. All values are either added as boost when above 70% energy or subtracted as debuff when below 30% energy.";
@@ -248,10 +254,129 @@ namespace SleepNeed.Config
         public string Energy_From_Sleep_When_Refreshed_Modifier { get; set; } = "           REFRESHED SLEEP                 -  ENERGY GAIN            🗘 (1.35)         -  When sleepiness is fully drained, and you are still sleeping, you then gain additional energy while sleeping. (1.35 = 35% increase in energy restored)";
         public float EnergyFromSleepWhenRefreshedModifier { get; set; } = 1.35f; // The factor by which the energy is regenerated from sleeping when sleepiness is fully drained.
         public string Delay_Seconds { get; set; } = "                                       DELAY SLEEPINESS                -  TIME                   🗘 (5)            -  This is used to delay sleepiness gain after waking up for X amount of real life seconds.";
-        public float DelaySeconds { get; set; } = 15f;
+        public float DelaySeconds { get; set; } = 25f;
         public string Disable_Behaviors { get; set; } = "           ----------------------  DISABLE MOD BEHAVIORS  ---------------------                                -  Here you can turn off Energy or Sleepiness and only keep the behavior you want. You can also turn off all stat changes if you don't want the mod touching any stats at all.";
-        
+        public string Disable_Behaviors_Note { get; set; } = "                   -----   🕱 🚫  WARNING! 🚫 🕱   -----       -  Only Enable/Disable Energy or Sleepiness when out of game, so the world can load with the new config";
+        public string Enable_Energy { get; set; } = "                                       ENABLE ENERGY                   -  MOD SYSTEM             🗘 (true)         -  You can disable the energy system and only keep the sleepiness, there will bee slight changes to the mod and what it affects.";
+        public bool EnableEnergy { get; set; } = true;
+        public string Enable_Sleepiness { get; set; } = "                                   ENABLE SLEEPINESS               -  MOD SYSTEM             🗘 (true)         -  You can disable the sleepiness system and only keep the energy, there will bee slight changes to the mod and what it affects.";
+        public bool EnableSleepiness { get; set; } = true;
+        public string Disable_StatChanges { get; set; } = "                                 DISABLE ALL STATS CHANGES       -  MOD SYSTEM             🗘 (false)        -  Disable all changes to stats affected by this mod. If you like managing the HUD bars, but don't care for the buff and debuffs to stats.";
+        public bool DisableStatChanges { get; set; } = false;
+        public SyncedConfig ToSyncedConfig()
+        {
+            return new SyncedConfig
+            {
+                // Master Switches
+                EnableEnergy = this.EnableEnergy,
+                EnableSleepiness = this.EnableSleepiness,
+                DisableStatChanges = this.DisableStatChanges,
 
+                // Energy
+                MaxEnergy = this.MaxEnergy,
+                EnergySpeedModifier = this.EnergySpeedModifier,
+                MovementEnergyCostModifier = this.MovementEnergyCostModifier,
+                SprintingJumpingEnergyCostModifier = this.SprintingJumpingEnergyCostModifier,
+                NoToolsWorkEnergyCostModifier = this.NoToolsWorkEnergyCostModifier,
+                LightToolsEnergyCostModifier = this.LightToolsEnergyCostModifier,
+                MediumToolsEnergyCostModifier = this.MediumToolsEnergyCostModifier,
+                HeavyToolsEnergyCostModifier = this.HeavyToolsEnergyCostModifier,
+                WeaponsEnergyCostModifier = this.WeaponsEnergyCostModifier,
+                AttackEnergyCostModifier = this.AttackEnergyCostModifier,
+                SittingRelaxingSpeedModifier = this.SittingRelaxingSpeedModifier,
+                WaterSpaRelaxingSpeedModifier = this.WaterSpaRelaxingSpeedModifier,
+                DrainEnergyWhenHealing = this.DrainEnergyWhenHealing,
+                EnergyDrainFromHealingModifier = this.EnergyDrainFromHealingModifier,
+                DrainEnergyWhenTakingDamage = this.DrainEnergyWhenTakingDamage,
+                EnergyDrainFromDamageMultiplier = this.EnergyDrainFromDamageMultiplier,
+                EnableAdrenalineRush = this.EnableAdrenalineRush,
+                AdrenalineDuration = this.AdrenalineDuration,
+                DisableBlockBreakeWhenSitting = this.DisableBlockBreakeWhenSitting,
+
+                // Hunger & Nutrition
+                HungerLevelMatters = this.HungerLevelMatters,
+                OnlyDieFromNoEnergy = this.OnlyDieFromNoEnergy,
+                DamageIfNoEnergyAndStarving = this.DamageIfNoEnergyAndStarving,
+                EnergyKills = this.EnergyKills,
+                DamageIfNoEnergyAndHungerDoesNotMatter = this.DamageIfNoEnergyAndHungerDoesNotMatter,
+                EnableNutrientFactor = this.EnableNutrientFactor,
+                NutritionLossWhenStarvingModifier = this.NutritionLossWhenStarvingModifier,
+                HungerRateReductionFromHighEnergy = this.HungerRateReductionFromHighEnergy,
+                HungerRateGainFromLowEnergy = this.HungerRateGainFromLowEnergy,
+                EnergyAfterRevival = this.EnergyAfterRevival,
+
+                // Energy Rates
+                HungerEnergyrateDebuff = this.HungerEnergyrateDebuff,
+                HungerEnergyrateDebuffStartRatio = this.HungerEnergyrateDebuffStartRatio,
+                BodyTemperatureMatters = this.BodyTemperatureMatters,
+                EnergyRatePerDegrees = this.EnergyRatePerDegrees,
+                SprintingWarmth = this.SprintingWarmth,
+                SleepinessEnergyrateDebuff = this.SleepinessEnergyrateDebuff,
+
+                // Stats
+                EnableEnergyDependedWalkSpeed = this.EnableEnergyDependedWalkSpeed,
+                WalkSpeedBoostFromEnergy = this.WalkSpeedBoostFromEnergy,
+                WalkSpeedDebuffFromEnergy = this.WalkSpeedDebuffFromEnergy,
+                EnableEnergyDependedArmorWalkSpeedAffectedness = this.EnableEnergyDependedArmorWalkSpeedAffectedness,
+                ArmorWalkSpeedAffectednessBoostFromEnergy = this.ArmorWalkSpeedAffectednessBoostFromEnergy,
+                ArmorWalkSpeedAffectednessDebuffFromEnergy = this.ArmorWalkSpeedAffectednessDebuffFromEnergy,
+                EnableEnergyDependedJumpHeight = this.EnableEnergyDependedJumpHeight,
+                JumpHeightBoostFromEnergy = this.JumpHeightBoostFromEnergy,
+                JumpHeightDebuffFromEnergy = this.JumpHeightDebuffFromEnergy,
+                EnableEnergyDependedToolMiningSpeed = this.EnableEnergyDependedToolMiningSpeed,
+                ToolMiningSpeedBoostFromEnergy = this.ToolMiningSpeedBoostFromEnergy,
+                ToolMiningSpeedDebuffFromEnergy = this.ToolMiningSpeedDebuffFromEnergy,
+                EnableEnergyDependedMeleeWeaponDamage = this.EnableEnergyDependedMeleeWeaponDamage,
+                MeleeWeaponDamageBoostFromEnergy = this.MeleeWeaponDamageBoostFromEnergy,
+                MeleeWeaponDamageDebuffFromEnergy = this.MeleeWeaponDamageDebuffFromEnergy,
+                EnableEnergyDependedRangedWeaponDamage = this.EnableEnergyDependedRangedWeaponDamage,
+                RangedWeaponDamageBoostFromEnergy = this.RangedWeaponDamageBoostFromEnergy,
+                RangedWeaponDamageDebuffFromEnergy = this.RangedWeaponDamageDebuffFromEnergy,
+                EnableEnergyDependedRangedWeaponSpeed = this.EnableEnergyDependedRangedWeaponSpeed,
+                RangedWeaponSpeedBoostFromEnergy = this.RangedWeaponSpeedBoostFromEnergy,
+                RangedWeaponSpeedDebuffFromEnergy = this.RangedWeaponSpeedDebuffFromEnergy,
+                EnableEnergyDependedBowDrawingStrength = this.EnableEnergyDependedBowDrawingStrength,
+                BowDrawingStrengthBoostFromEnergy = this.BowDrawingStrengthBoostFromEnergy,
+                BowDrawingStrengthDebuffFromEnergy = this.BowDrawingStrengthDebuffFromEnergy,
+                EnableEnergyDependedAnimalHarvestingTime = this.EnableEnergyDependedAnimalHarvestingTime,
+                AnimalHarvestingTimeBoostFromEnergy = this.AnimalHarvestingTimeBoostFromEnergy,
+                AnimalHarvestingTimeDebuffFromEnergy = this.AnimalHarvestingTimeDebuffFromEnergy,
+                RefreshedEnergyBoostMultiplier = this.RefreshedEnergyBoostMultiplier,
+
+                // Sleepiness
+                MaxSleepiness = this.MaxSleepiness,
+                SleepinessCapacityOverload = this.SleepinessCapacityOverload,
+                FeelingRefreshedHours = this.FeelingRefreshedHours,
+                SleepinessRangedWeaponsAccDebuff = this.SleepinessRangedWeaponsAccDebuff,
+                SleepinessWalkSpeedDebuff = this.SleepinessWalkSpeedDebuff,
+                SleepinessRangedWeaponsSpeedDebuff = this.SleepinessRangedWeaponsSpeedDebuff,
+                SleepinessAfterRevival = this.SleepinessAfterRevival,
+                GainSleepinessWhenHealing = this.GainSleepinessWhenHealing,
+                GainSleepinessWhenHealingModifier = this.GainSleepinessWhenHealingModifier,
+
+                // Invigoration
+                LoseInvigorationWhenDying = this.LoseInvigorationWhenDying,
+                DrainInvigorationWhenHealing = this.DrainInvigorationWhenHealing,
+                InvigorationDrainFromHealingModifier = this.InvigorationDrainFromHealingModifier,
+                InvigoratedDrainFromDamageMultiplier = this.InvigoratedDrainFromDamageMultiplier,
+                EnableInvigoratedHealthBoost = this.EnableInvigoratedHealthBoost,
+                InvigoratedHealthBoostPercentageOfMaxHealth = this.InvigoratedHealthBoostPercentageOfMaxHealth,
+                EnableInvigoratedHealingEffectiveness = this.EnableInvigoratedHealingEffectiveness,
+                InvigoratedHealingEffectivenessModifier = this.InvigoratedHealingEffectivenessModifier,
+                EnableInvigoratedMaxEnergyBoost = this.EnableInvigoratedMaxEnergyBoost,
+                InvigoratedMaxEnergyBoostModifier = this.InvigoratedMaxEnergyBoostModifier,
+                EnableInvigoratedLungCapacityBoost = this.EnableInvigoratedLungCapacityBoost,
+                InvigoratedLungCapacityBoostPercentageOfConfigLungCapacity = this.InvigoratedLungCapacityBoostPercentageOfConfigLungCapacity,
+
+                // Sleep Regeneration
+                SleepRegenerationFactor = this.SleepRegenerationFactor,
+                SleepBoostFromHighEnergy = this.SleepBoostFromHighEnergy,
+                SleepDebuffFromLowEnergy = this.SleepDebuffFromLowEnergy,
+                EnergyRestoredBySleepingModifier = this.EnergyRestoredBySleepingModifier,
+                EnergyFromSleepWhenRefreshedModifier = this.EnergyFromSleepWhenRefreshedModifier,
+                DelaySeconds = this.DelaySeconds
+            };
+        }
 
         public ConfigServer(ICoreAPI api, ConfigServer previousConfig = null)
         {
@@ -263,6 +388,7 @@ namespace SleepNeed.Config
             this.MaxEnergy = previousConfig.MaxEnergy;
             this.EnergySpeedModifier = previousConfig.EnergySpeedModifier;
             this.SittingRelaxingSpeedModifier = previousConfig.SittingRelaxingSpeedModifier;
+            this.WaterSpaRelaxingSpeedModifier = previousConfig.WaterSpaRelaxingSpeedModifier;
             this.AttackEnergyCostModifier = previousConfig.AttackEnergyCostModifier;
             this.HeavyToolsEnergyCostModifier = previousConfig.HeavyToolsEnergyCostModifier;
             this.MediumToolsEnergyCostModifier = previousConfig.MediumToolsEnergyCostModifier;
@@ -271,9 +397,10 @@ namespace SleepNeed.Config
             this.NoToolsWorkEnergyCostModifier = previousConfig.NoToolsWorkEnergyCostModifier;
             this.MovementEnergyCostModifier = previousConfig.MovementEnergyCostModifier;
             this.SprintingJumpingEnergyCostModifier = previousConfig.SprintingJumpingEnergyCostModifier;
-            
+
 
             // Energy related stats
+            this.DisableBlockBreakeWhenSitting = previousConfig.DisableBlockBreakeWhenSitting;
             this.EnableEnergyDependedToolMiningSpeed = previousConfig.EnableEnergyDependedToolMiningSpeed;
             this.ToolMiningSpeedBoostFromEnergy = previousConfig.ToolMiningSpeedBoostFromEnergy;
             this.ToolMiningSpeedDebuffFromEnergy = previousConfig.ToolMiningSpeedDebuffFromEnergy;
@@ -342,6 +469,7 @@ namespace SleepNeed.Config
             // Temperature
             this.BodyTemperatureMatters = previousConfig.BodyTemperatureMatters;
             this.EnergyRatePerDegrees = previousConfig.EnergyRatePerDegrees;
+            this.SprintingWarmth = previousConfig.SprintingWarmth;
 
             // Sleepiness
             this.MaxSleepiness = previousConfig.MaxSleepiness;
@@ -362,9 +490,9 @@ namespace SleepNeed.Config
             this.DelaySeconds = previousConfig.DelaySeconds;
 
             // Master Switches
-            base.EnableEnergy = previousConfig.EnableEnergy;
-            base.EnableSleepiness = previousConfig.EnableSleepiness;
-            base.DisableStatChanges = previousConfig.DisableStatChanges;
+            this.EnableEnergy = previousConfig.EnableEnergy;
+            this.EnableSleepiness = previousConfig.EnableSleepiness;
+            this.DisableStatChanges = previousConfig.DisableStatChanges;
         }
 
 
@@ -374,46 +502,123 @@ namespace SleepNeed.Config
     [ProtoContract]
     public class SyncedConfig : IModConfig
     {
-        
-        [ProtoMember(1, IsRequired = true)]
-        public bool EnableEnergy { get; set; } = true;
 
-        
-        [ProtoMember(2, IsRequired = true)]
-        public bool EnableSleepiness { get; set; } = true;
+        // Master Switches
+        [ProtoMember(1)] public bool EnableEnergy { get; set; } // = true;
+        [ProtoMember(2)] public bool EnableSleepiness { get; set; } // = true;
+        [ProtoMember(3)] public bool DisableStatChanges { get; set; }
 
-        
-        [ProtoMember(16, IsRequired = true)]
-        public bool DisableStatChanges { get; set; }
+        // Energy Data
+        [ProtoMember(4)] public float MaxEnergy { get; set; }
+        [ProtoMember(5)] public float EnergySpeedModifier { get; set; }
+        [ProtoMember(6)] public float MovementEnergyCostModifier { get; set; }
+        [ProtoMember(7)] public float SprintingJumpingEnergyCostModifier { get; set; }
+        [ProtoMember(8)] public float NoToolsWorkEnergyCostModifier { get; set; }
+        [ProtoMember(9)] public float LightToolsEnergyCostModifier { get; set; }
+        [ProtoMember(10)] public float MediumToolsEnergyCostModifier { get; set; }
+        [ProtoMember(11)] public float HeavyToolsEnergyCostModifier { get; set; }
+        [ProtoMember(12)] public float WeaponsEnergyCostModifier { get; set; }
+        [ProtoMember(13)] public float AttackEnergyCostModifier { get; set; }
+        [ProtoMember(14)] public float SittingRelaxingSpeedModifier { get; set; }
+        [ProtoMember(15)] public float WaterSpaRelaxingSpeedModifier { get; set; }
+        [ProtoMember(16)] public bool DrainEnergyWhenHealing { get; set; }
+        [ProtoMember(17)] public float EnergyDrainFromHealingModifier { get; set; }
+        [ProtoMember(18)] public bool DrainEnergyWhenTakingDamage { get; set; }
+        [ProtoMember(19)] public float EnergyDrainFromDamageMultiplier { get; set; }
+        [ProtoMember(20)] public bool EnableAdrenalineRush { get; set; }
+        [ProtoMember(21)] public float AdrenalineDuration { get; set; }
+        [ProtoMember(22)] public bool DisableBlockBreakeWhenSitting { get; set; }
 
-        
+        // Hunger & Nutrition
+        [ProtoMember(23)] public bool HungerLevelMatters { get; set; }
+        [ProtoMember(24)] public bool OnlyDieFromNoEnergy { get; set; }
+        [ProtoMember(25)] public float DamageIfNoEnergyAndStarving { get; set; }
+        [ProtoMember(26)] public bool EnergyKills { get; set; }
+        [ProtoMember(27)] public float DamageIfNoEnergyAndHungerDoesNotMatter { get; set; }
+        [ProtoMember(28)] public bool EnableNutrientFactor { get; set; }
+        [ProtoMember(29)] public float NutritionLossWhenStarvingModifier { get; set; }
+        [ProtoMember(30)] public float HungerRateReductionFromHighEnergy { get; set; }
+        [ProtoMember(31)] public float HungerRateGainFromLowEnergy { get; set; }
+        [ProtoMember(32)] public float EnergyAfterRevival { get; set; }
+
+        // Energy Rates
+        [ProtoMember(33)] public float HungerEnergyrateDebuff { get; set; }
+        [ProtoMember(34)] public float HungerEnergyrateDebuffStartRatio { get; set; }
+        [ProtoMember(35)] public bool BodyTemperatureMatters { get; set; }
+        [ProtoMember(36)] public float EnergyRatePerDegrees { get; set; }
+        [ProtoMember(37)] public float SleepinessEnergyrateDebuff { get; set; }
+
+        // Stats
+        [ProtoMember(38)] public bool EnableEnergyDependedWalkSpeed { get; set; }
+        [ProtoMember(39)] public float WalkSpeedBoostFromEnergy { get; set; }
+        [ProtoMember(40)] public float WalkSpeedDebuffFromEnergy { get; set; }
+        [ProtoMember(41)] public bool EnableEnergyDependedArmorWalkSpeedAffectedness { get; set; }
+        [ProtoMember(42)] public float ArmorWalkSpeedAffectednessBoostFromEnergy { get; set; }
+        [ProtoMember(43)] public float ArmorWalkSpeedAffectednessDebuffFromEnergy { get; set; }
+        [ProtoMember(44)] public bool EnableEnergyDependedJumpHeight { get; set; }
+        [ProtoMember(45)] public float JumpHeightBoostFromEnergy { get; set; }
+        [ProtoMember(46)] public float JumpHeightDebuffFromEnergy { get; set; }
+        [ProtoMember(47)] public bool EnableEnergyDependedToolMiningSpeed { get; set; }
+        [ProtoMember(48)] public float ToolMiningSpeedBoostFromEnergy { get; set; }
+        [ProtoMember(49)] public float ToolMiningSpeedDebuffFromEnergy { get; set; }
+        [ProtoMember(50)] public bool EnableEnergyDependedMeleeWeaponDamage { get; set; }
+        [ProtoMember(51)] public float MeleeWeaponDamageBoostFromEnergy { get; set; }
+        [ProtoMember(52)] public float MeleeWeaponDamageDebuffFromEnergy { get; set; }
+        [ProtoMember(53)] public bool EnableEnergyDependedRangedWeaponDamage { get; set; }
+        [ProtoMember(54)] public float RangedWeaponDamageBoostFromEnergy { get; set; }
+        [ProtoMember(55)] public float RangedWeaponDamageDebuffFromEnergy { get; set; }
+        [ProtoMember(56)] public bool EnableEnergyDependedRangedWeaponSpeed { get; set; }
+        [ProtoMember(57)] public float RangedWeaponSpeedBoostFromEnergy { get; set; }
+        [ProtoMember(58)] public float RangedWeaponSpeedDebuffFromEnergy { get; set; }
+        [ProtoMember(59)] public bool EnableEnergyDependedBowDrawingStrength { get; set; }
+        [ProtoMember(60)] public float BowDrawingStrengthBoostFromEnergy { get; set; }
+        [ProtoMember(61)] public float BowDrawingStrengthDebuffFromEnergy { get; set; }
+        [ProtoMember(62)] public bool EnableEnergyDependedAnimalHarvestingTime { get; set; }
+        [ProtoMember(63)] public float AnimalHarvestingTimeBoostFromEnergy { get; set; }
+        [ProtoMember(64)] public float AnimalHarvestingTimeDebuffFromEnergy { get; set; }
+        [ProtoMember(65)] public float RefreshedEnergyBoostMultiplier { get; set; }
+
+        // Sleepiness
+        [ProtoMember(66)] public float MaxSleepiness { get; set; }
+        [ProtoMember(67)] public float SleepinessCapacityOverload { get; set; }
+        [ProtoMember(68)] public float FeelingRefreshedHours { get; set; }
+        [ProtoMember(69)] public float SleepinessRangedWeaponsAccDebuff { get; set; }
+        [ProtoMember(70)] public float SleepinessWalkSpeedDebuff { get; set; }
+        [ProtoMember(71)] public float SleepinessRangedWeaponsSpeedDebuff { get; set; }
+        [ProtoMember(72)] public float SleepinessAfterRevival { get; set; }
+        [ProtoMember(73)] public bool GainSleepinessWhenHealing { get; set; }
+        [ProtoMember(74)] public float GainSleepinessWhenHealingModifier { get; set; }
+
+        // Invigoration
+        [ProtoMember(75)] public bool LoseInvigorationWhenDying { get; set; }
+        [ProtoMember(76)] public bool DrainInvigorationWhenHealing { get; set; }
+        [ProtoMember(77)] public float InvigorationDrainFromHealingModifier { get; set; }
+        [ProtoMember(78)] public float InvigoratedDrainFromDamageMultiplier { get; set; }
+        [ProtoMember(79)] public bool EnableInvigoratedHealthBoost { get; set; }
+        [ProtoMember(80)] public float InvigoratedHealthBoostPercentageOfMaxHealth { get; set; }
+        [ProtoMember(81)] public bool EnableInvigoratedHealingEffectiveness { get; set; }
+        [ProtoMember(82)] public float InvigoratedHealingEffectivenessModifier { get; set; }
+        [ProtoMember(83)] public bool EnableInvigoratedMaxEnergyBoost { get; set; }
+        [ProtoMember(84)] public float InvigoratedMaxEnergyBoostModifier { get; set; }
+        [ProtoMember(85)] public bool EnableInvigoratedLungCapacityBoost { get; set; }
+        [ProtoMember(86)] public float InvigoratedLungCapacityBoostPercentageOfConfigLungCapacity { get; set; }
+
+        // Sleeping
+        [ProtoMember(87)] public float SleepRegenerationFactor { get; set; }
+        [ProtoMember(88)] public float SleepBoostFromHighEnergy { get; set; }
+        [ProtoMember(89)] public float SleepDebuffFromLowEnergy { get; set; }
+        [ProtoMember(90)] public float EnergyRestoredBySleepingModifier { get; set; }
+        [ProtoMember(91)] public float EnergyFromSleepWhenRefreshedModifier { get; set; }
+        [ProtoMember(92)] public float DelaySeconds { get; set; }
+        [ProtoMember(93)] public float SprintingWarmth { get; set; }
+
         public SyncedConfig()
         {
         }
 
-        
-        public SyncedConfig(ICoreAPI api, SyncedConfig previousConfig = null)
-        {
-            if (previousConfig == null)
-            {
-                return;
-            }
-            this.EnableEnergy = previousConfig.EnableEnergy;
-            this.EnableSleepiness = previousConfig.EnableSleepiness;
-            this.DisableStatChanges = previousConfig.DisableStatChanges;
-
-        }
-
-        
         public SyncedConfig Clone() // Maybe delete this one since it's not used
         {
-            return new SyncedConfig
-            {
-                EnableEnergy = this.EnableEnergy,
-                EnableSleepiness = this.EnableSleepiness,
-                DisableStatChanges = this.DisableStatChanges,
-
-            };
+            return (SyncedConfig)this.MemberwiseClone();
         }
     }
 

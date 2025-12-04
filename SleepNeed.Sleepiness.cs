@@ -1,15 +1,18 @@
-﻿using SleepNeed.Systems;
+﻿using SleepNeed.Config;
 using SleepNeed.Energy;
+using SleepNeed.Systems;
 using SleepNeed.Util;
 using System;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
+using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 using Vintagestory.ServerMods.NoObf;
-using Vintagestory.API.Config;
-using SleepNeed.Config;
+using static System.Net.Mime.MediaTypeNames;
 
 
 namespace SleepNeed.Sleepiness
@@ -33,7 +36,7 @@ namespace SleepNeed.Sleepiness
         {
             get
             {
-                float sleepinesscapacityOverload = (float)Math.Round((double)(ConfigSystem.ConfigServer.SleepinessCapacityOverload * this.SleepinessCapacity));
+                float sleepinesscapacityOverload = (float)Math.Round((double)(ConfigSystem.SyncedConfig.SleepinessCapacityOverload * this.SleepinessCapacity));
                 ITreeAttribute sleepinessTree = this._sleepinessTree;
                 if (sleepinessTree != null)
                 {
@@ -115,6 +118,28 @@ namespace SleepNeed.Sleepiness
             
             }
         }
+         public bool PlayerIsBuildingGroundBed
+         {
+            get
+            {
+                ITreeAttribute sleepinessTree = this._sleepinessTree;
+                if (sleepinessTree == null)
+                {
+                    return false;
+                }
+                return sleepinessTree.GetBool("buildinggroundbed", false);
+            }
+            set
+            {
+                ITreeAttribute sleepinessTree = this._sleepinessTree;
+                if (sleepinessTree != null)
+                {
+                    sleepinessTree.SetBool("buildinggroundbed", value);
+                }
+                this.entity.WatchedAttributes.MarkPathDirty(this.AttributeKey);
+            }
+         }
+        
 
         public EntityBehaviorSleepiness(Entity entity) : base(entity)
         {
@@ -123,245 +148,317 @@ namespace SleepNeed.Sleepiness
 
         public override void Initialize(EntityProperties properties, JsonObject typeAttributes)
         {
-
-             
+            if (!ConfigSystem.SyncedConfig.EnableSleepiness)
+            {
+                return;
+            }
             this._sleepinessTree = this.entity.WatchedAttributes.GetTreeAttribute(this.AttributeKey);
             this._api = this.entity.World.Api;
-            
-            if (this._sleepinessTree == null || this._sleepinessTree.GetFloat("sleepinesscapacity", 0f) == 0f || this._sleepinessTree.GetFloat("sleepinesscapacityoverload", 0f) == 0f)
+            this.capi = this._api as ICoreClientAPI;
+            this.sapi = this._api as ICoreServerAPI;
+            bool isClient = this.entity.World.Side == EnumAppSide.Client;
+            bool invalidTree = this._sleepinessTree == null || this._sleepinessTree.GetFloat("sleepinesscapacity", 0f) == 0f || this._sleepinessTree.GetFloat("sleepinesscapacityoverload", 0f) == 0f;
+            if (invalidTree && (!isClient || this._sleepinessTree == null))
             {
-                this.entity.WatchedAttributes.SetAttribute(this.AttributeKey, this._sleepinessTree = new TreeAttribute());
+                if (this._sleepinessTree == null)
+                {
+                    this.entity.WatchedAttributes.SetAttribute(this.AttributeKey, this._sleepinessTree = new TreeAttribute());
+                }
+
                 this.CurrentSleepinessLevel = typeAttributes["currentsleepinesslevel"].AsFloat(0f);
                 this.SleepinessCapacityModifier = typeAttributes["sleepinesscapacitymodifier"].AsFloat(1f);
             }
-
-            // Play with tickrate. It impacts the decrease in sleepiness when sleeping and the increase when not sleeping.
+            // If a listener already exists (from a previous Initialize), stop it first.
+            if (this._sleepinesslistenerId != 0)
+            {
+                this.entity.World.UnregisterGameTickListener(this._sleepinesslistenerId);
+            }
             if (this.entity is EntityPlayer)
             {
                 this._sleepinesslistenerId = this.entity.World.RegisterGameTickListener(new Action<float>(this.SlowTick), 300, 0);
             }
             this._hoursTotal = this.entity.World.Calendar.TotalHours;
             this._hoursPerDay = this.entity.World.Calendar.HoursPerDay;
-            this.ConfigCapacity = ConfigSystem.ConfigServer.MaxSleepiness / this._hoursPerDay;
-
-
-
-
+            if (ConfigSystem.SyncedConfig != null)
+            {
+                this.ConfigCapacity = ConfigSystem.SyncedConfig.MaxSleepiness / this._hoursPerDay;
+            }
+            else
+            {
+                this.ConfigCapacity = 14f / this._hoursPerDay;
+            }
         }
         
         public override void OnGameTick(float deltaTime)
         {
-            if (this.HasRevivedSleepiness)
+            if (ConfigSystem.SyncedConfig == null)
             {
-                this.CurrentSleepinessLevel = this.EffectiveSleepinessCapacity * ConfigSystem.ConfigServer.SleepinessAfterRevival;
+                return;
             }
+            else if (ConfigSystem.SyncedConfig.EnableSleepiness)
+            {
+                if (this.HasRevivedSleepiness)
+                {
+                    this.CurrentSleepinessLevel = this.EffectiveSleepinessCapacity * ConfigSystem.SyncedConfig.SleepinessAfterRevival;
+                }
+            } 
         }
 
         private void SlowTick(float dt)
         {
-            EntityPlayer player = this.entity as EntityPlayer;
-            this.RefreshedThreshold = ConfigSystem.ConfigServer.FeelingRefreshedHours / this.EffectiveSleepinessCapacity;
-            this.OverloadThreshold = 1f - (this.SleepinessCapacityOverload / this.EffectiveSleepinessCapacity);
-            float hoursPassed = (float)(this.entity.World.Calendar.TotalHours - this._hoursTotal);
-            this.LastHoursPassed = hoursPassed;
-            // Detect transition from sleeping to awake
-            bool wasSleeping = this._isSleepingNow;
-            UpdateIsSleepingNow();
-            bool isSleeping = this._isSleepingNow;
-
-            if (wasSleeping && !isSleeping)
-            {
-                this._justWokeUp = true;
-                this._wakeDelayTimer = 0f;
-            }
-
-            // Handle delay after waking up
-            if (this._justWokeUp || this.HasRevivedSleepiness)
-            {
-                this._wakeDelayTimer += dt;
-                if (this._wakeDelayTimer < WakeDelaySeconds)
-                {
-                    // Skip the "awake" logic during the delay
-                    this._hoursTotal = this.entity.World.Calendar.TotalHours;
-                    return;
-                }
-                else
-                {
-                    this._justWokeUp = false; // Delay finished, resume normal logic
-                    this.HasRevivedSleepiness = false;
-                }
-            }
-            
-            if (hoursPassed > 0.0f && this._isSleepingNow == false)
-            {
-                if (ConfigSystem.ConfigServer.EnableEnergy)
-                {
-                    // This is to slow down sleepiness gain if ou are healthy and well. May ease up early game.
-                    this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * Math.Clamp(this.SleepinessFactor, 0.55f, 0.90f), 0f, this.EffectiveSleepinessCapacity); // Changed from 0.60 to 0.85, wich is in the current 2.0.0 version
-                }
-                else
-                {
-                    // * 0.75f is the rate at which sleepiness increases per hour when not sleeping
-                    this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * 0.70f, 0f, this.EffectiveSleepinessCapacity);
-                }
-            }
-            this.SleepinessRatio = this.CurrentSleepinessLevel / this.EffectiveSleepinessCapacity;
-            this.SleepinessOverloadRatio = Math.Clamp(this.OverloadThreshold * (this.CurrentSleepinessLevel - (this.OverloadThreshold * this.EffectiveSleepinessCapacity)) / ((this.SleepinessCapacityOverload / this.EffectiveSleepinessCapacity) * this.EffectiveSleepinessCapacity) + this.OverloadThreshold, this.OverloadThreshold, 1f);
-            
-            if (hoursPassed > 0.0f && this._isSleepingNow == true)
-            {
-                // * 1.5f is the rate at which sleepiness decreases per hour when sleeping
-                if (ConfigSystem.ConfigServer.EnableEnergy)
-                {
-                    var energy = entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
-                    if (energy != null)
-                    {
-                        this.SleepinessFactor = (1f - (((1f - (this.SleepinessRatio)) + energy.EnergyRatio + energy.OverallHealthRatio) / 3f)); // Used for Sleepiness gain
-                        if (energy.EnergyRatio >= 0.0f && energy.EnergyRatio < 0.7f) // From 0.1 to 0.0
-                        {
-                            this.SleepEnergyModifier = Math.Clamp(ConfigSystem.ConfigServer.SleepDebuffFromLowEnergy + ((energy.EnergyRatio + energy.SatRatio) / 2f), 0.5f, 1.0f); // Changed 0.35f to 0.4f
-                        }
-                        else if (energy.EnergyRatio >= 0.7f)
-                        {
-                            this.SleepEnergyModifier = 1f + (ConfigSystem.ConfigServer.SleepBoostFromHighEnergy * ((energy.EnergyRatioHighEnergyPart2 + energy.SatRatio) / 2f));
-                        }
-                        // else if (energy.EnergyRatio <= 0.1f)
-                        // {
-                        //    this.SleepEnergyModifier = 1f + (ConfigSystem.ConfigServer.SleepDebuffFromLowEnergy * energy.EnergyRatioLowEnergyPart2);
-                        // }
-
-                        if (energy.SatRatio <= 0.2f)
-                        {
-                            this.CurrentSleepinessLevel = Math.Max(this.CurrentSleepinessLevel - (((hoursPassed * ConfigSystem.ConfigServer.SleepRegenerationFactor) + (hoursPassed * energy.OverallHealthRatio)) * this.SleepEnergyModifier), ConfigSystem.ConfigServer.FeelingRefreshedHours);
-                        }
-                        else
-                        {
-                            this.CurrentSleepinessLevel = Math.Max(this.CurrentSleepinessLevel - (((hoursPassed * ConfigSystem.ConfigServer.SleepRegenerationFactor) + (hoursPassed * energy.OverallHealthRatio)) * this.SleepEnergyModifier), 0f);
-                        }
-                        float energyRestored = energy.EnergyRestored * (1f - this.SleepinessRatio);
-                        if (energyRestored > 0f)
-                        {
-                            float energyRestoredfromSleepiness = energyRestored;
-                            if (this.SleepinessRatio <= this.RefreshedThreshold)
-                            {
-                                energyRestoredfromSleepiness = energyRestored * ConfigSystem.ConfigServer.EnergyFromSleepWhenRefreshedModifier;
-                            }
-                            this.EnergyRestoredfromSleepiness = energyRestored + (energyRestoredfromSleepiness * energy.OverallHealthRatio);
-                        }
-                        else
-                        {
-                            this.EnergyRestoredfromSleepiness = 0f;
-                        }
-                    }
-                    
-                }
-                else
-                {
-                    this.CurrentSleepinessLevel = Math.Max(this.CurrentSleepinessLevel - hoursPassed * ConfigSystem.ConfigServer.SleepRegenerationFactor, 0f);
-                }
-                
-            }
-            
-            this._hoursTotal = this.entity.World.Calendar.TotalHours;
-            EntityStats stats = this.entity?.Stats;
-            SyncedTreeAttribute watchedAttributes = this.entity?.WatchedAttributes;
-            if (stats == null || watchedAttributes == null)
+            if (ConfigSystem.SyncedConfig == null)
             {
                 return;
             }
-            this.WalkSpeedMultiplier.Multiplier = ConfigSystem.ConfigServer.SleepinessWalkSpeedDebuff;
-            this.RangedWeaponsAccMultiplier.Multiplier = ConfigSystem.ConfigServer.SleepinessRangedWeaponsAccDebuff;
-            this.RangedWeaponsSpeedMultiplier.Multiplier = ConfigSystem.ConfigServer.SleepinessRangedWeaponsSpeedDebuff;
-            if (!this.IsOverloaded())
+            else if (ConfigSystem.SyncedConfig.EnableSleepiness)
             {
-                this.IsOverloadedForEnergy = false;
-                if (this.SleepinessRatio <= this.RefreshedThreshold)
+                EntityPlayer player = this.entity as EntityPlayer;
+                this.RefreshedThreshold = ConfigSystem.SyncedConfig.FeelingRefreshedHours / this.EffectiveSleepinessCapacity;
+                this.OverloadThreshold = 1f - (this.SleepinessCapacityOverload / this.EffectiveSleepinessCapacity);
+                float hoursPassed = (float)(this.entity.World.Calendar.TotalHours - this._hoursTotal);
+                this.LastHoursPassed = hoursPassed;
+                // Detect transition from sleeping to awake
+                bool wasSleeping = this._isSleepingNow;
+                UpdateIsSleepingNow();
+                bool isSleeping = this._isSleepingNow;
+
+                if (wasSleeping && !isSleeping)
                 {
-                    if (!ConfigSystem.ConfigServer.DisableStatChanges)
+                    this._justWokeUp = true;
+                    this._wakeDelayTimer = 0f;
+                }
+
+                // Handle delay after waking up
+                if (this._justWokeUp || this.HasRevivedSleepiness)
+                {
+                    this._wakeDelayTimer += dt;
+                    if (this._wakeDelayTimer < WakeDelaySeconds)
                     {
-                        this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", ConfigSystem.ConfigServer.SleepinessRangedWeaponsAccDebuff * 0.385f, false);
+                        // Skip the "awake" logic during the delay
+                        this._hoursTotal = this.entity.World.Calendar.TotalHours;
+                        return;
                     }
-                    
-                    if (ConfigSystem.ConfigServer.EnableEnergy)
+                    else
                     {
-                        var energy = entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
-                        if (!energy.Starving)
+                        this._justWokeUp = false; // Delay finished, resume normal logic
+                        this.HasRevivedSleepiness = false;
+                        if (this.entity != null)
                         {
-                            float energyrate = (this.entity.Stats.GetBlended("energyrate"));
-                            this.entity.Stats.Set(BtCore.Modid + ":energyrate", "sleepinessfull", -energyrate * (1f - Math.Clamp(this.SleepinessRatio / this.RefreshedThreshold, 0.0f, 1.0f)), false);
-                            
+                            EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                            if (tirednessBehavior != null)
+                            {
+                                tirednessBehavior.Tiredness = 5f;
+                            }
                         }
                     }
+                }
+
+                if (hoursPassed > 0.0f && this._isSleepingNow == false)
+                {
+                    if (ConfigSystem.SyncedConfig.EnableEnergy)
+                    {
+                        // This is to slow down sleepiness gain if ou are healthy and well. May ease up early game.
+                        this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * Math.Clamp(this.SleepinessFactor, 0.55f, 0.90f), 0f, this.EffectiveSleepinessCapacity); // Changed from 0.60 to 0.85, wich is in the current 2.0.0 version
+                    }
+                    else
+                    {
+                        // * 0.75f is the rate at which sleepiness increases per hour when not sleeping
+                        this.CurrentSleepinessLevel = GameMath.Clamp(this.CurrentSleepinessLevel + hoursPassed * 0.70f, 0f, this.EffectiveSleepinessCapacity);
+                    }
+                }
+                this.SleepinessRatio = this.CurrentSleepinessLevel / this.EffectiveSleepinessCapacity;
+                this.SleepinessOverloadRatio = Math.Clamp(this.OverloadThreshold * (this.CurrentSleepinessLevel - (this.OverloadThreshold * this.EffectiveSleepinessCapacity)) / ((this.SleepinessCapacityOverload / this.EffectiveSleepinessCapacity) * this.EffectiveSleepinessCapacity) + this.OverloadThreshold, this.OverloadThreshold, 1f);
+
+                if (hoursPassed > 0.0f && this._isSleepingNow == true)
+                {
+                    // * 1.5f is the rate at which sleepiness decreases per hour when sleeping
+                    if (ConfigSystem.SyncedConfig.EnableEnergy)
+                    {
+                        var energy = entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
+                        if (energy != null)
+                        {
+                            this.SleepinessFactor = (1f - (((1f - (this.SleepinessRatio)) + energy.EnergyRatio + energy.OverallHealthRatio) / 3f)); // Used for Sleepiness gain
+                            if (energy.EnergyRatio >= 0.0f && energy.EnergyRatio < 0.7f) // From 0.1 to 0.0
+                            {
+                                this.SleepEnergyModifier = Math.Clamp(ConfigSystem.SyncedConfig.SleepDebuffFromLowEnergy + ((energy.EnergyRatio + energy.SatRatio) / 2f), 0.5f, 1.0f); // Changed 0.35f to 0.4f
+                            }
+                            else if (energy.EnergyRatio >= 0.7f)
+                            {
+                                this.SleepEnergyModifier = 1f + (ConfigSystem.SyncedConfig.SleepBoostFromHighEnergy * ((energy.EnergyRatioHighEnergyPart2 + energy.SatRatio) / 2f));
+                            }
+                            // else if (energy.EnergyRatio <= 0.1f)
+                            // {
+                            //    this.SleepEnergyModifier = 1f + (ConfigSystem.SyncedConfig.SleepDebuffFromLowEnergy * energy.EnergyRatioLowEnergyPart2);
+                            // }
+
+                            if (energy.SatRatio <= 0.2f)
+                            {
+                                this.CurrentSleepinessLevel = Math.Max(this.CurrentSleepinessLevel - (((hoursPassed * ConfigSystem.SyncedConfig.SleepRegenerationFactor) + (hoursPassed * energy.OverallHealthRatio)) * this.SleepEnergyModifier), ConfigSystem.SyncedConfig.FeelingRefreshedHours);
+                            }
+                            else
+                            {
+                                this.CurrentSleepinessLevel = Math.Max(this.CurrentSleepinessLevel - (((hoursPassed * ConfigSystem.SyncedConfig.SleepRegenerationFactor) + (hoursPassed * energy.OverallHealthRatio)) * this.SleepEnergyModifier), 0f);
+                            }
+                            float energyRestored = energy.EnergyRestored * (1f - this.SleepinessRatio);
+                            if (energyRestored > 0f)
+                            {
+                                float energyRestoredfromSleepiness = energyRestored;
+                                if (this.SleepinessRatio <= this.RefreshedThreshold)
+                                {
+                                    energyRestoredfromSleepiness = energyRestored * ConfigSystem.SyncedConfig.EnergyFromSleepWhenRefreshedModifier;
+                                }
+                                this.EnergyRestoredfromSleepiness = energyRestored + (energyRestoredfromSleepiness * energy.OverallHealthRatio);
+                            }
+                            else
+                            {
+                                this.EnergyRestoredfromSleepiness = 0f;
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        var healthBehavior = this.entity.GetBehavior<EntityBehaviorHealth>();
+                        EntityBehaviorHunger hunger = this.entity.GetBehavior<EntityBehaviorHunger>();
+                        float healthRatio = 0f;
+                        float satRatio = 0f;
+                        float nutrientRatio = 0f;
+                        float sleepFactor = 0f;
+                        if (healthBehavior != null && hunger != null)
+                        {
+                            healthRatio = Math.Clamp(healthBehavior.Health, 0f, healthBehavior.BaseMaxHealth) / healthBehavior.BaseMaxHealth;
+                            satRatio = hunger.Saturation / hunger.MaxSaturation;
+                            nutrientRatio = ((hunger.FruitLevel / hunger.MaxSaturation) + (hunger.VegetableLevel / hunger.MaxSaturation) + (hunger.ProteinLevel / hunger.MaxSaturation) + (hunger.GrainLevel / hunger.MaxSaturation) + (hunger.DairyLevel / hunger.MaxSaturation)) / 5f;
+                            sleepFactor = ((healthRatio + satRatio + nutrientRatio) / 3f) * this.SleepinessRatio;
+                        }
+                        this.CurrentSleepinessLevel -= Math.Max((hoursPassed + sleepFactor) * ConfigSystem.SyncedConfig.SleepRegenerationFactor, 0f);
+                    }
+
+                }
+
+                this._hoursTotal = this.entity.World.Calendar.TotalHours;
+                EntityStats stats = this.entity?.Stats;
+                SyncedTreeAttribute watchedAttributes = this.entity?.WatchedAttributes;
+                if (stats == null || watchedAttributes == null)
+                {
+                    return;
+                }
+                this.WalkSpeedMultiplier.Multiplier = ConfigSystem.SyncedConfig.SleepinessWalkSpeedDebuff;
+                this.RangedWeaponsAccMultiplier.Multiplier = ConfigSystem.SyncedConfig.SleepinessRangedWeaponsAccDebuff;
+                this.RangedWeaponsSpeedMultiplier.Multiplier = ConfigSystem.SyncedConfig.SleepinessRangedWeaponsSpeedDebuff;
+
+                this._statsDelayTimer += dt;
+                
+
+                if (!this.IsOverloaded())
+                {
+                    this.IsOverloadedForEnergy = false;
+                    if (this.SleepinessRatio <= this.RefreshedThreshold)
+                    {
+                        if (this._statsDelayTimer > 10f)
+                        {
+                            if (!ConfigSystem.SyncedConfig.DisableStatChanges)
+                            {
+                                this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", ConfigSystem.SyncedConfig.SleepinessRangedWeaponsAccDebuff * 0.385f, false);
+                            }
+
+                            if (ConfigSystem.SyncedConfig.EnableEnergy)
+                            {
+                                var energy = entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
+                                if (!energy.Starving)
+                                {
+                                    float baseEnergyRate = 1.0f;
+                                    float reductionFactor = (1f - Math.Clamp(this.SleepinessRatio / this.RefreshedThreshold, 0.0f, 1.0f));
+                                    this.entity.Stats.Set(BtCore.Modid + ":energyrate", "sleepinessfull", -baseEnergyRate * reductionFactor, false);
+                                }
+                            }
+                            this._sleepinessStatsRemove = false;
+                            this._statsDelayTimer = 0f;
+                        }
+                    }
+                    else if (this.SleepinessRatio > this.RefreshedThreshold && !this._sleepinessStatsRemove)
+                    {
+                        this.entity.Stats.Remove("rangedWeaponsAcc", "sleepinessfull");
+                        this.entity.Stats.Remove("walkspeed", "sleepinessfull");
+                        this.entity.Stats.Remove("rangedWeaponsSpeed", "sleepinessfull");
+                        if (ConfigSystem.SyncedConfig.EnableEnergy)
+                        {
+                            this.entity.Stats.Remove(BtCore.Modid + ":energyrate", "sleepinessfull");
+                        }
+                        this._sleepinessStatsRemove = true;
+                        this._statsDelayTimer = 0f;
+                    }
+                }
+                else if (this.IsOverloaded())
+                {
+                    this.IsOverloadedForEnergy = true;
                     this._sleepinessStatsRemove = false;
-                }
-                else if (this.SleepinessRatio > this.RefreshedThreshold && !this._sleepinessStatsRemove)
-                {
-                    this.entity.Stats.Remove("rangedWeaponsAcc", "sleepinessfull");
-                    this.entity.Stats.Remove("walkspeed", "sleepinessfull");
-                    this.entity.Stats.Remove("rangedWeaponsSpeed", "sleepinessfull");
-                    if (ConfigSystem.ConfigServer.EnableEnergy)
+                    float energyrateSleepinessFactor = ((ConfigSystem.SyncedConfig.SleepinessEnergyrateDebuff / 100f) - 1f) * this.SleepinessOverloadRatio;
+                    if (this._statsDelayTimer > 10f)
                     {
-                        this.entity.Stats.Remove(BtCore.Modid + ":energyrate", "sleepinessfull");
+                        if (!ConfigSystem.SyncedConfig.DisableStatChanges)
+                        {
+                            this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", this.RangedWeaponsAccMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                        }
+
+
+                        if (ConfigSystem.SyncedConfig.EnableEnergy)
+                        {
+                            this.entity.Stats.Set(BtCore.Modid + ":energyrate", "sleepinessfull", energyrateSleepinessFactor, false);
+                        }
+                        else
+                        {
+                            if (!ConfigSystem.SyncedConfig.DisableStatChanges)
+                            {
+                                this.entity.Stats.Set("walkspeed", "sleepinessfull", this.WalkSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                                this.entity.Stats.Set("rangedWeaponsSpeed", "sleepinessfull", this.RangedWeaponsSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
+                            }
+
+                        }
+
+                        this._statsDelayTimer = 0f;
                     }
-                    this._sleepinessStatsRemove = true;
                 }
-                
             }
-            else if (this.IsOverloaded())
-            {
-                this.IsOverloadedForEnergy = true;
-                this._sleepinessStatsRemove = false;
-                float energyrateSleepinessFactor = ((ConfigSystem.ConfigServer.SleepinessEnergyrateDebuff / 100f) - 1f) * this.SleepinessOverloadRatio;
-
-                if (!ConfigSystem.SyncedConfig.DisableStatChanges)
-                {
-                    this.entity.Stats.Set("rangedWeaponsAcc", "sleepinessfull", this.RangedWeaponsAccMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
-                }
-                
-                
-                if (ConfigSystem.ConfigServer.EnableEnergy)
-                {
-                    this.entity.Stats.Set(BtCore.Modid + ":energyrate", "sleepinessfull", energyrateSleepinessFactor, false);
-                }
-                else
-                {
-                    if (!ConfigSystem.SyncedConfig.DisableStatChanges)
-                    {
-                        this.entity.Stats.Set("walkspeed", "sleepinessfull", this.WalkSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
-                        this.entity.Stats.Set("rangedWeaponsSpeed", "sleepinessfull", this.RangedWeaponsSpeedMultiplier.CalcModifier(this.SleepinessOverloadRatio), false);
-                    }
-                    
-                }
-
-                    
-            }
-            
-
-
         }
 
         private bool IsOverloaded()
         {
-            return this.CurrentSleepinessLevel > this.SleepinessCapacity;
+            if (ConfigSystem.SyncedConfig == null)
+            {
+                return false;
+            }
+            else if (ConfigSystem.SyncedConfig.EnableSleepiness)
+            {
+                return this.CurrentSleepinessLevel > this.SleepinessCapacity;
+            }
+            return false;
         }
 
         
 
         private void UpdateIsSleepingNow()
         {
-            if (this.entity == null)
+            if (ConfigSystem.SyncedConfig == null)
             {
                 return;
             }
-            EntityBehaviorTiredness ebt = this.entity.GetBehavior<EntityBehaviorTiredness>();
-            if (ebt != null && ebt.IsSleeping != false)
+            else if (ConfigSystem.SyncedConfig.EnableSleepiness)
             {
-                this._isSleepingNow = true;
-                
-            }
-            else
-            {
-                this._isSleepingNow = false;
+                if (this.entity == null)
+                {
+                    return;
+                }
+                EntityBehaviorTiredness ebt = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                if (ebt != null && ebt.IsSleeping != false)
+                {
+                    this._isSleepingNow = true;
+
+                }
+                else
+                {
+                    this._isSleepingNow = false;
+                }
             }
         }
 
@@ -387,18 +484,27 @@ namespace SleepNeed.Sleepiness
 
         public override void OnEntityReceiveDamage(DamageSource damageSource, ref float damage)
         {
-            if (damageSource.Source == EnumDamageSource.Revive)
+            if (ConfigSystem.SyncedConfig == null)
             {
-                this.HasRevivedSleepiness = true;
+                return;
             }
-
-            EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
-            if (damageSource.Type == EnumDamageType.Heal && tirednessBehavior != null)
+            else if (ConfigSystem.SyncedConfig.EnableSleepiness)
             {
-                tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
-                if (ConfigSystem.ConfigServer.GainSleepinessWhenHealing)
+                if (damageSource.Source == EnumDamageSource.Revive)
                 {
-                    this.CurrentSleepinessLevel += (damage / 2f) * ConfigSystem.ConfigServer.GainSleepinessWhenHealingModifier; // Add config to let the player choose the sleepiness gain rate.
+                    this.HasRevivedSleepiness = true;
+                }
+                if (this.entity != null)
+                {
+                    EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                    if (damageSource.Type == EnumDamageType.Heal && tirednessBehavior != null)
+                    {
+                        tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
+                        if (ConfigSystem.SyncedConfig.GainSleepinessWhenHealing)
+                        {
+                            this.CurrentSleepinessLevel += (damage / 2f) * ConfigSystem.SyncedConfig.GainSleepinessWhenHealingModifier; // Add config to let the player choose the sleepiness gain rate.
+                        }
+                    }
                 }
             }
         }
@@ -407,6 +513,10 @@ namespace SleepNeed.Sleepiness
         private ITreeAttribute _sleepinessTree;
 
         private ICoreAPI _api;
+
+        private ICoreClientAPI capi;
+
+        private ICoreServerAPI sapi;
 
         public Random Rand;
 
@@ -441,7 +551,8 @@ namespace SleepNeed.Sleepiness
 
         private bool _justWokeUp = false;
         private float _wakeDelayTimer = 0f;
-        private float WakeDelaySeconds { get; } = ConfigSystem.ConfigServer.DelaySeconds; // Set your desired delay in seconds
+        private float _statsDelayTimer = 0f;
+        private float WakeDelaySeconds { get; } = ConfigSystem.SyncedConfig.DelaySeconds; // Set your desired delay in seconds
 
         private long _sleepinesslistenerId;
 
@@ -450,24 +561,24 @@ namespace SleepNeed.Sleepiness
         // Private field to store the sleeping state
         private bool _isSleepingNow = false;
 
-        
+     
         public StatMultiplier WalkSpeedMultiplier = new StatMultiplier
         {
-            Multiplier = ConfigSystem.ConfigServer.SleepinessWalkSpeedDebuff,
+            Multiplier = ConfigSystem.SyncedConfig.SleepinessWalkSpeedDebuff,
             Centering = EnumUpOrDown.Centered,
             Curve = EnumBuffCurve.Linear,
             Inverted = false
         };
         public StatMultiplier RangedWeaponsAccMultiplier = new StatMultiplier
         {
-            Multiplier = ConfigSystem.ConfigServer.SleepinessRangedWeaponsAccDebuff,
+            Multiplier = ConfigSystem.SyncedConfig.SleepinessRangedWeaponsAccDebuff,
             Centering = EnumUpOrDown.Centered,
             Curve = EnumBuffCurve.Linear,
             Inverted = false
         };
         public StatMultiplier RangedWeaponsSpeedMultiplier = new StatMultiplier
         {
-            Multiplier = ConfigSystem.ConfigServer.SleepinessRangedWeaponsSpeedDebuff,
+            Multiplier = ConfigSystem.SyncedConfig.SleepinessRangedWeaponsSpeedDebuff,
             Centering = EnumUpOrDown.Centered,
             Curve = EnumBuffCurve.Linear,
             Inverted = false

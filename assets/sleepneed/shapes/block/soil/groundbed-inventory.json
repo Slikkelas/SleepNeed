@@ -1,0 +1,75 @@
+{
+	"editor": {
+		"allAngles": false,
+		"entityTextureMode": false
+	},
+	"textureWidth": 16,
+	"textureHeight": 16,
+	"textureSizes": {
+	},
+	"textures": {
+		"ground": "game:block/transparent"
+	},
+	"elements": [
+		{
+			"name": "groundbed-head",
+			"from": [ -8.0, 0.0, 8.0 ],
+			"to": [ -8.0, 0.0, 8.0 ],
+			"rotationOrigin": [ -8.0, 0.0, 8.0 ],
+			"faces": {
+				"north": { "texture": "#ground", "uv": [ 0.0, 0.5, 0.5, 1.0 ] },
+				"east": { "texture": "#ground", "uv": [ 0.5, 0.5, 1.0, 1.0 ] },
+				"south": { "texture": "#ground", "uv": [ 1.0, 0.5, 1.5, 1.0 ] },
+				"west": { "texture": "#ground", "uv": [ 1.5, 0.5, 2.0, 1.0 ] },
+				"up": { "texture": "#ground", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
+				"down": { "texture": "#ground", "uv": [ 0.5, 0.0, 1.0, 0.5 ] }
+			},
+			"children": [
+				{
+					"name": "Plane",
+					"from": [ 0, 0, -8 ],
+					"to": [ 16, 1, 8 ],
+					"rotationOrigin": [ 8.0, 0.0, 8.0 ],
+					"faces": {
+						"north": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"east": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"south": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"west": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"up": { "texture": "#ground", "uv": [ 0, 0, 16, 16 ] },
+						"down": { "texture": "#ground", "uv": [ 0, 0, 16, 16 ] }
+					}
+				}
+			]
+		},
+		{
+			"name": "groundbed-feet",
+			"from": [ 8.0, 0.0, 8.0 ],
+			"to": [ 8.0, 0.0, 8.0 ],
+			"rotationOrigin": [ 8.0, 0.0, 8.0 ],
+			"faces": {
+				"north": { "texture": "#ground", "uv": [ 0.5, 4.0, 1.0, 4.5 ] },
+				"east": { "texture": "#ground", "uv": [ 1.0, 4.0, 1.5, 4.5 ] },
+				"south": { "texture": "#ground", "uv": [ 1.5, 4.0, 2.0, 4.5 ] },
+				"west": { "texture": "#ground", "uv": [ 2.0, 4.0, 2.5, 4.5 ] },
+				"up": { "texture": "#ground", "uv": [ 0.5, 3.5, 1.0, 4.0 ] },
+				"down": { "texture": "#ground", "uv": [ 1.0, 3.5, 1.5, 4.0 ] }
+			},
+			"children": [
+				{
+					"name": "Plane2",
+					"from": [ -16, 0, -8 ],
+					"to": [ 0, 1, 8 ],
+					"rotationOrigin": [ 8.0, 0.0, 8.0 ],
+					"faces": {
+						"north": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"east": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"south": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"west": { "texture": "#ground", "uv": [ 0, 15, 16, 16 ] },
+						"up": { "texture": "#ground", "uv": [ 0, 0, 16, 16 ] },
+						"down": { "texture": "#ground", "uv": [ 0, 0, 16, 16 ] }
+					}
+				}
+			]
+		}
+	]
+}

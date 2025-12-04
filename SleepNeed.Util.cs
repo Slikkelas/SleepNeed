@@ -25,8 +25,6 @@ namespace SleepNeed.Util
 
         public static readonly string ConfigClientName = "SleepNeed/sleepneed_client.json";
 
-        public static readonly string SyncedConfigName = "SleepNeed/sleepneed_sync.json";
-
         public static string FatiguedEffectId = BtCore.Modid + ":fatigued";
 
     }
@@ -36,7 +34,7 @@ namespace SleepNeed.Util
 
 
         public enum EnumBuffCurve
-    {
+        {
         None,
         Linear,
         Sin,
@@ -47,7 +45,7 @@ namespace SleepNeed.Util
         InverseQuintic,
         Flat0,
         Flat1
-    }
+        }
 
     
 

@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using SleepNeed.Energy;
 using SleepNeed.Hud;
 using SleepNeed.Systems;
 using System;
@@ -21,20 +22,28 @@ namespace SleepNeed.HarmonyPatches.EnergyJumpFactorPatch
         // It takes the EntityPlayer instance to calculate the custom jump factor.
         public static float GetEnergyJumpFactor(EntityPlayer player)
         {
-            
+
             if (player == null)
             {
                 return 0f; // No energy jump factor if not a player
             }
-            ITreeAttribute treeAttribute = player.WatchedAttributes.GetTreeAttribute("sleepneed:energy");
-            if (treeAttribute == null)
+            if (ConfigSystem.SyncedConfig == null)
             {
-                return 0f; // No energy data available
+                return 0f;
             }
+            else if (ConfigSystem.SyncedConfig.EnableEnergy && ConfigSystem.SyncedConfig.EnableEnergyDependedJumpHeight)
+            {
+                ITreeAttribute treeAttribute = player.WatchedAttributes.GetTreeAttribute("sleepneed:energy");
+                if (treeAttribute == null)
+                {
+                    return 0f; // No energy data available
+                }
 
-            float energyJumpBoostStat = treeAttribute.GetFloat("energyjumpbooststat", 0f); // Provide a default value
-            return energyJumpBoostStat;
+                float energyJumpBoostStat = treeAttribute.GetFloat("energyjumpbooststat", 0f); // Provide a default value
 
+                return energyJumpBoostStat;
+            }
+            return 0f;
         }
 
         public static IEnumerable<CodeInstruction> JumpFactorTranspilerMethod(IEnumerable<CodeInstruction> instructions)

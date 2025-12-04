@@ -49,23 +49,16 @@ namespace SleepNeed.Hud
 
     public class GuiElementOverloadableBar : GuiElementTextBase
     {
-        // Token: 0x1700000B RID: 11
-        // (get) Token: 0x06000069 RID: 105 RVA: 0x000046DA File Offset: 0x000028DA
-        // (set) Token: 0x0600006A RID: 106 RVA: 0x000046E2 File Offset: 0x000028E2
+        
         public bool HideWhenFull { get; set; }
 
-        // Token: 0x1700000C RID: 12
-        // (get) Token: 0x0600006B RID: 107 RVA: 0x000046EB File Offset: 0x000028EB
-        // (set) Token: 0x0600006C RID: 108 RVA: 0x000046F3 File Offset: 0x000028F3
+        
         public float HideWhenLessThan { get; set; }
 
-        // Token: 0x1700000D RID: 13
-        // (get) Token: 0x0600006D RID: 109 RVA: 0x000046FC File Offset: 0x000028FC
-        // (set) Token: 0x0600006E RID: 110 RVA: 0x00004704 File Offset: 0x00002904
+        
         private bool ShowValueOnHover { get; set; } = true;
 
-        // Token: 0x1700000E RID: 14
-        // (get) Token: 0x0600006F RID: 111 RVA: 0x0000470D File Offset: 0x0000290D
+        
         private bool IsOverloaded
         {
             get
@@ -74,8 +67,7 @@ namespace SleepNeed.Hud
             }
         }
 
-        // Token: 0x1700000F RID: 15
-        // (get) Token: 0x06000070 RID: 112 RVA: 0x0000471D File Offset: 0x0000291D
+        
         private int ValueHeight
         {
             get
@@ -84,8 +76,7 @@ namespace SleepNeed.Hud
             }
         }
 
-        // Token: 0x17000010 RID: 16
-        // (get) Token: 0x06000071 RID: 113 RVA: 0x0000472D File Offset: 0x0000292D
+        
         private int ValueWidth
         {
             get
@@ -94,7 +85,7 @@ namespace SleepNeed.Hud
             }
         }
 
-        // Token: 0x06000072 RID: 114 RVA: 0x0000473C File Offset: 0x0000293C
+        
         public GuiElementOverloadableBar(ICoreClientAPI capi, ElementBounds bounds, double[] color, double[] overloadColor, bool rightToLeft, bool hideable) : base(capi, "", CairoFont.WhiteDetailText(), bounds)
         {
             this._barTexture = new LoadedTexture(capi);
@@ -111,7 +102,7 @@ namespace SleepNeed.Hud
             this._onGetStatbarValue = (() => ((float)Math.Round((double)this._value, 1)).ToString() + " / " + ((int)this._maxValue).ToString());
         }
 
-        // Token: 0x06000073 RID: 115 RVA: 0x00004808 File Offset: 0x00002A08
+        
         public override void ComposeElements(Context ctx, ImageSurface surface)
         {
             this.Bounds.CalcWorldBounds();
@@ -145,13 +136,25 @@ namespace SleepNeed.Hud
             ctx.Dispose();
         }
 
-        // Token: 0x06000074 RID: 116 RVA: 0x00004998 File Offset: 0x00002B98
+        
         private void RecomposeOverlays()
         {
+            // Beregn størrelser på hovedtråden, hvor det er sikkert
+            this.Bounds.CalcWorldBounds();
+            int surfWidth = this.ValueWidth;
+            int surfHeight = this.ValueHeight;
+
+            // Vi gemmer disse doubles i lokale variabler, så de er "låst" til denne task
+            double innerW = this.Bounds.InnerWidth;
+            double innerH = this.Bounds.InnerHeight;
+            double outerW = this.Bounds.OuterWidth;
+            double outerH = this.Bounds.OuterHeight;
+            int outerWint = this.Bounds.OuterWidthInt;
+            int outerHint = this.Bounds.OuterHeightInt;
             TyronThreadPool.QueueTask(delegate ()
             {
-                this.ComposeValueOverlay();
-                this.ComposeFlashOverlay();
+                this.ComposeValueOverlay(surfWidth, surfHeight, innerW, innerH, outerW, outerH);
+                this.ComposeFlashOverlay(surfWidth, surfHeight, outerWint, outerHint);
             });
             if (this.ShowValueOnHover)
             {
@@ -164,21 +167,21 @@ namespace SleepNeed.Hud
             }
         }
 
-        // Token: 0x06000075 RID: 117 RVA: 0x00004A10 File Offset: 0x00002C10
-        private void ComposeValueOverlay()
+        
+        private void ComposeValueOverlay(int surfWidth, int surfHeight, double innerW, double innerH, double outerW, double outerH)
         {
-            this.Bounds.CalcWorldBounds();
+            
             double num = (double)this._value / (double)(this._maxValue - this._minValue);
-            double num2 = (double)((this._value + 0.5) - this._maxValue) / (double)(this._maxValue * ConfigSystem.ConfigServer.SleepinessCapacityOverload);
-            ImageSurface surface = new ImageSurface(0, this.ValueWidth, this.ValueHeight);
+            double num2 = (double)((this._value + 0.5) - this._maxValue) / (double)this.CapacityOverloadFactor;
+            ImageSurface surface = new ImageSurface(0, surfWidth, surfHeight);
             Context ctx = new Context(surface);
             if (num > 0.01)
             {
-                this.DrawColorBar(ctx, surface, num, this._color);
+                this.DrawColorBar(ctx, surface, num, this._color, outerW, outerH, innerW, innerH);
             }
             if (this.IsOverloaded && num2 > 0.01)
             {
-                this.DrawColorBar(ctx, surface, num2, this._overloadColor);
+                this.DrawColorBar(ctx, surface, num2, this._overloadColor, outerW, outerH, innerW, innerH);
             }
             ctx.SetSourceRGBA(0.0, 0.0, 0.0, 0.5);
             ctx.LineWidth = GuiElement.scaled(2.2);
@@ -187,9 +190,9 @@ namespace SleepNeed.Hud
             {
                 ctx.NewPath();
                 ctx.SetSourceRGBA(0.0, 0.0, 0.0, 0.5);
-                double num4 = this.Bounds.InnerWidth * (double)i / (double)num3;
+                double num4 = innerW * (double)i / (double)num3;
                 ctx.MoveTo(num4, 0.0);
-                ctx.LineTo(num4, Math.Max(3.0, this.Bounds.InnerHeight - 1.0));
+                ctx.LineTo(num4, Math.Max(3.0, innerH - 1.0));
                 ctx.ClosePath();
                 ctx.Stroke();
             }
@@ -201,37 +204,37 @@ namespace SleepNeed.Hud
             }, "recompstatbar");
         }
 
-        // Token: 0x06000076 RID: 118 RVA: 0x00004C2C File Offset: 0x00002E2C
-        private void DrawColorBar(Context ctx, ImageSurface surface, double widthRel, double[] color)
+        
+        private void DrawColorBar(Context ctx, ImageSurface surface, double widthRel, double[] color, double outerW, double outerH, double innerW, double innerH)
         {
-            double num = this.Bounds.OuterWidth * widthRel;
-            double x = this._rightToLeft ? (this.Bounds.OuterWidth - num) : 0.0;
-            GuiElement.RoundRectangle(ctx, x, 0.0, num, this.Bounds.OuterHeight, 1.0);
+            double num = outerW * widthRel;
+            double x = this._rightToLeft ? (outerW - num) : 0.0;
+            GuiElement.RoundRectangle(ctx, x, 0.0, num, outerH, 1.0);
             ctx.SetSourceRGB(color[0], color[1], color[2]);
             ctx.FillPreserve();
             ctx.SetSourceRGB(color[0] * 0.4, color[1] * 0.4, color[2] * 0.4);
             ctx.LineWidth = GuiElement.scaled(3.0);
             ctx.StrokePreserve();
             SurfaceTransformBlur.BlurFull(surface, 3.0);
-            num = this.Bounds.InnerWidth * widthRel;
-            x = (this._rightToLeft ? (this.Bounds.InnerWidth - num) : 0.0);
-            base.EmbossRoundRectangleElement(ctx, x, 0.0, num, this.Bounds.InnerHeight, false, 2, 1);
+            num = innerW * widthRel;
+            x = (this._rightToLeft ? (innerW - num) : 0.0);
+            base.EmbossRoundRectangleElement(ctx, x, 0.0, num, innerH, false, 2, 1);
         }
 
-        // Token: 0x06000077 RID: 119 RVA: 0x00004D50 File Offset: 0x00002F50
-        private void ComposeFlashOverlay()
+        
+        private void ComposeFlashOverlay(int surfWidth, int surfHeight, int outerWint, int outerHint)
         {
-            ImageSurface surface = new ImageSurface(0, this.Bounds.OuterWidthInt + 28, this.Bounds.OuterHeightInt + 28);
+            ImageSurface surface = new ImageSurface(0, surfWidth + 28, surfHeight + 28);
             Context ctx = new Context(surface);
             ctx.SetSourceRGBA(0.0, 0.0, 0.0, 0.0);
             ctx.Paint();
-            GuiElement.RoundRectangle(ctx, 12.0, 12.0, (double)(this.Bounds.OuterWidthInt + 4), (double)(this.Bounds.OuterHeightInt + 4), 1.0);
+            GuiElement.RoundRectangle(ctx, 12.0, 12.0, (double)(outerWint + 4), (double)(outerHint + 4), 1.0);
             ctx.SetSourceRGB(this._color[0], this._color[1], this._color[2]);
             ctx.FillPreserve();
             SurfaceTransformBlur.BlurFull(surface, 3.0);
             ctx.Fill();
             SurfaceTransformBlur.BlurFull(surface, 2.0);
-            GuiElement.RoundRectangle(ctx, 15.0, 15.0, (double)(this.Bounds.OuterWidthInt - 2), (double)(this.Bounds.OuterHeightInt - 2), 1.0);
+            GuiElement.RoundRectangle(ctx, 15.0, 15.0, (double)(outerWint - 2), (double)(outerHint - 2), 1.0);
             ctx.Operator = 0;
             ctx.SetSourceRGBA(0.0, 0.0, 0.0, 0.0);
             ctx.Fill();
@@ -243,7 +246,7 @@ namespace SleepNeed.Hud
             }, "recompstatbar");
         }
 
-        // Token: 0x06000078 RID: 120 RVA: 0x00004F2C File Offset: 0x0000312C
+        
         public override void RenderInteractiveElements(float deltaTime)
         {
             double renderX = this.Bounds.renderX;
@@ -292,13 +295,13 @@ namespace SleepNeed.Hud
             this.api.Render.RenderTexture(this._valueTexture.TextureId, posX, posY, (double)this._valueTexture.Width, (double)this._valueTexture.Height, 2000f, null);
         }
 
-        // Token: 0x06000079 RID: 121 RVA: 0x00005194 File Offset: 0x00003394
+        
         public void SetLineInterval(float value)
         {
             this._lineInterval = value;
         }
 
-        // Token: 0x0600007A RID: 122 RVA: 0x0000519D File Offset: 0x0000339D
+        
         public void SetValue(float value)
         {
             this._value = value;
@@ -306,13 +309,13 @@ namespace SleepNeed.Hud
             this.RecomposeOverlays();
         }
 
-        // Token: 0x0600007B RID: 123 RVA: 0x000051B3 File Offset: 0x000033B3
+        
         public float GetValue()
         {
             return this._value;
         }
 
-        // Token: 0x0600007C RID: 124 RVA: 0x000051BB File Offset: 0x000033BB
+        
         public void SetValues(float value, float min, float max)
         {
             this._valuesSet = true;
@@ -322,7 +325,7 @@ namespace SleepNeed.Hud
             this.RecomposeOverlays();
         }
 
-        // Token: 0x0600007D RID: 125 RVA: 0x000051DF File Offset: 0x000033DF
+        
         public void SetMinMax(float min, float max)
         {
             this._minValue = min;
@@ -330,7 +333,7 @@ namespace SleepNeed.Hud
             this.RecomposeOverlays();
         }
 
-        // Token: 0x0600007E RID: 126 RVA: 0x000051F5 File Offset: 0x000033F5
+        
         public override void Dispose()
         {
             base.Dispose();
@@ -344,55 +347,57 @@ namespace SleepNeed.Hud
             this._valueTexture.Dispose();
         }
 
-        // Token: 0x0400003C RID: 60
+        
         private float _minValue;
 
-        // Token: 0x0400003D RID: 61
+        
         private float _maxValue = 100f;
 
-        // Token: 0x0400003E RID: 62
+        
         private float _value = 32f;
 
-        // Token: 0x0400003F RID: 63
+        
         private float _lineInterval = 10f;
 
-        // Token: 0x04000040 RID: 64
+        public float CapacityOverloadFactor { get; set; } = 11.0f;
+
+        
         private readonly double[] _color;
 
-        // Token: 0x04000041 RID: 65
+        
         private readonly double[] _overloadColor;
 
-        // Token: 0x04000042 RID: 66
+        
         private readonly bool _rightToLeft;
 
-        // Token: 0x04000046 RID: 70
+        
         private LoadedTexture _baseTexture;
 
-        // Token: 0x04000047 RID: 71
+        
         private LoadedTexture _barTexture;
 
-        // Token: 0x04000048 RID: 72
+        
         private LoadedTexture _flashTexture;
 
-        // Token: 0x04000049 RID: 73
+        
         private LoadedTexture _valueTexture;
 
-        // Token: 0x0400004A RID: 74
+        
         public bool ShouldFlash;
 
-        // Token: 0x0400004B RID: 75
+        
         private float _flashTime;
 
-        // Token: 0x0400004C RID: 76
+        
         private bool _valuesSet;
 
-        // Token: 0x0400004D RID: 77
+        
         private readonly bool _hideable;
 
-        // Token: 0x0400004E RID: 78
+        
         private StatbarValueDelegate _onGetStatbarValue;
 
-        // Token: 0x0400004F RID: 79
+        
         private readonly CairoFont _valueFont = CairoFont.WhiteSmallText().WithStroke(ColorUtil.BlackArgbDouble, 0.75);
     }
 
@@ -440,11 +445,11 @@ namespace SleepNeed.Hud
             1.0
         };
 
-        public static readonly double[] EnergyBarColor3 = new double[]
+        public static readonly double[] InvigorationBarColor = new double[]
         {
-            0.3843137254901961,
-            0.7450980392156863,
-            0.7568627450980392,
+            0.0039215686,
+            0.7058823529,
+            0.7019607843,
             1.0
         };
     }
@@ -455,7 +460,7 @@ namespace SleepNeed.Hud
         {
             get
             {
-                return ConfigSystem.ConfigClient.SleepinessBarVisible && ConfigSystem.SyncedConfigData.EnableSleepiness;
+                return ConfigSystem.ConfigClient.SleepinessBarVisible && ConfigSystem.SyncedConfig.EnableSleepiness; 
             }
         }
 
@@ -463,7 +468,7 @@ namespace SleepNeed.Hud
         {
             get
             {
-                return ConfigSystem.SyncedConfigData.EnableEnergy;
+                return ConfigSystem.SyncedConfig.EnableEnergy;
             }
         }
 
@@ -507,7 +512,14 @@ namespace SleepNeed.Hud
                 return;
             }
             base.ClearComposers();
-            this.Dispose();
+            this._energyBar = null;
+            this._sleepinessBar = null;
+            // this.Dispose();
+
+            if (!this.ShouldShowEnergyBar && !this.ShouldShowSleepinessBar)
+            {
+                return;
+            }
             this.ComposeGuis();
             if (this.ShouldShowEnergyBar)
             {
@@ -521,11 +533,11 @@ namespace SleepNeed.Hud
 
         private void OnGameTick(float dt)
         {
-            if (this.ShouldShowEnergyBar)
+            if (this.Composers.ContainsKey("energybar") && this.ShouldShowEnergyBar)
             {
                 this.UpdateEnergyBar(false);
             }
-            if (this.ShouldShowSleepinessBar)
+            if (this.Composers.ContainsKey("sleepinessbar") && this.ShouldShowSleepinessBar)
             {
                 this.UpdateSleepinessBar(false);
             }
@@ -546,6 +558,7 @@ namespace SleepNeed.Hud
             }
             float? currentEnergyLevel = energyTree.TryGetFloat("currentenergylevel");
             float? maxEnergy = energyTree.TryGetFloat("maxenergy");
+            
             if (currentEnergyLevel == null || maxEnergy == null)
             {
                 return;
@@ -571,6 +584,7 @@ namespace SleepNeed.Hud
             }
             float? currentsleepinessLevel = sleepinessTree.TryGetFloat("currentsleepinesslevel");
             float? sleepinessCapacity = sleepinessTree.TryGetFloat("sleepinesscapacity");
+            float? sleepinessCapacityOverload = sleepinessTree.TryGetFloat("sleepinesscapacityoverload");
             if (currentsleepinessLevel == null || sleepinessCapacity == null)
             {
                 return;
@@ -581,6 +595,7 @@ namespace SleepNeed.Hud
             {
                 return;
             }
+            this._sleepinessBar.CapacityOverloadFactor = sleepinessCapacityOverload.GetValueOrDefault(11.0f);
             this._sleepinessBar.SetLineInterval(1f); 
             this._sleepinessBar.SetValues(currentsleepinessLevel.Value, 0f, sleepinessCapacity.Value);
             this._lastSleepinessLevel = currentsleepinessLevel.Value;
@@ -595,9 +610,10 @@ namespace SleepNeed.Hud
             {
                 float? nullable2 = energyTree.TryGetFloat("currentenergylevel");
                 float? nullable3 = energyTree.TryGetFloat("maxenergy");
+                bool? fighting = energyTree.TryGetBool("adrenalineindicator"); // added fighting
                 double? nullable4 = (nullable2 != null & nullable3 != null) ? new double?((double)nullable2.GetValueOrDefault() / (double)nullable3.GetValueOrDefault()) : null;
                 double num = 0.2;
-                if (nullable4.GetValueOrDefault() < num & nullable4 != null)
+                if ((nullable4.GetValueOrDefault() < num & nullable4 != null) || fighting == true) // added fighting
                 {
                     this._energyBar.ShouldFlash = true;
                 }

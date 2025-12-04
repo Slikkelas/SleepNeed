@@ -1,0 +1,140 @@
+{
+	"code": "groundbed",
+	"class": "BlockBed",
+	"entityClassByType": {
+		"*-head-*": "Bed"
+	},
+	"attributes": {
+		"sleepEfficiencyByType": {
+			"groundbed-*": 0.375
+		},
+		"attachableToEntity": {
+			"categoryCode": "bedroll",
+			"attachedShape": { "base": "sleepneed:item/groundbed_hooved" }
+		}
+	},
+	"entityBehaviors": [ { "name": "Animatable" } ],
+	"sidesolid": {
+		"all": false
+	},
+	"sideopaque": {
+		"all": false
+	},
+	"heldTpIdleAnimation": "holdunderarm",
+	"variantgroups": [
+		{
+			"code": "part",
+			"states": [ "head", "feet" ]
+		},
+		{
+			"code": "side",
+			"loadFromProperties": "abstract/horizontalorientation"
+		}
+	],
+	"creativeinventory": {
+		"general": [ "*-head-north" ],
+		"decorative": [ "*-head-north" ]
+	},
+	"shapeinventory": { "base": "sleepneed:block/soil/groundbed-inventory" },
+	"shapebytype": {
+		"*-head-north": {
+			"base": "sleepneed:block/soil/groundbed-head",
+			"rotateY": 90
+		},
+		"*-head-east": {
+			"base": "sleepneed:block/soil/groundbed-head",
+			"rotateY": 0
+		},
+		"*-head-south": {
+			"base": "sleepneed:block/soil/groundbed-head",
+			"rotateY": 270
+		},
+		"*-head-west": {
+			"base": "sleepneed:block/soil/groundbed-head",
+			"rotateY": 180
+		},
+		"*-feet-north": {
+			"base": "sleepneed:block/soil/groundbed-feet",
+			"rotateY": 90
+		},
+		"*-feet-east": {
+			"base": "sleepneed:block/soil/groundbed-feet",
+			"rotateY": 0
+		},
+		"*-feet-south": {
+			"base": "sleepneed:block/soil/groundbed-feet",
+			"rotateY": 270
+		},
+		"*-feet-west": {
+			"base": "sleepneed:block/soil/groundbed-feet",
+			"rotateY": 180
+		}
+	},
+
+	"blockmaterial": "Soil",
+	"replaceable": 1023,
+	"resistance": 2,
+	"lightAbsorption": 1,
+	"maxStackSize": 0,
+	"drops": [],
+	"dropsByType": {
+		"groundbed-head-*": [],
+		"groundbed-feet-*": []
+	},
+	"guitransform": {
+		"scale": 0.8
+	},
+	"combustibleProps": {
+		"burnTemperature": 600,
+		"burnDuration": 4
+	},
+	"fpHandTransform": {
+		"translation": {
+			"x": 0,
+			"y": 0.4,
+			"z": 0.5
+		},
+		"rotation": {
+			"x": 4,
+			"y": 3,
+			"z": 1
+		},
+		"origin": {
+			"x": 0.5,
+			"y": 0.1,
+			"z": 0.5
+		},
+		"scale": 0.6
+	},
+	"groundTransform": {
+		"origin": {
+			"x": 0.5,
+			"y": 0,
+			"z": 0.5
+		},
+		"scale": 2
+	},
+	"selectionbox": {
+		"x1": 0,
+		"y1": 0,
+		"z1": 0,
+		"x2": 1,
+		"y2": 0.0625,
+		"z2": 1
+	},
+	"collisionbox": {
+		"x1": 0,
+		"y1": 0,
+		"z1": 0,
+		"x2": 1,
+		"y2": 0.0625,
+		"z2": 1
+	},
+	"sounds": {
+		"place": "game:block/dirt",
+		"hit": "game:block/dirt",
+		"break": "game:block/dirt",
+		"walk": "game:walk/grass"
+	},
+	"materialDensity": 600
+}
