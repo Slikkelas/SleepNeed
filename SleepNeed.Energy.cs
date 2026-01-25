@@ -308,10 +308,6 @@ namespace SleepNeed.Energy
         
         public override void Initialize(EntityProperties properties, JsonObject typeAttributes)
         {
-            if (!ConfigSystem.SyncedConfig.EnableEnergy)
-            {
-                return;
-            }
             this._energyTree = this.entity.WatchedAttributes.GetTreeAttribute(this.AttributeKey);
             this._api = this.entity.World.Api;
             this.capi = this._api as ICoreClientAPI;
@@ -397,6 +393,14 @@ namespace SleepNeed.Energy
                 {
                     this.CurrentEnergy = ConfigSystem.SyncedConfig.MaxEnergy * ConfigSystem.SyncedConfig.EnergyAfterRevival;
                     this.HasRevived = false;
+                    if (this.entity != null)
+                    {
+                        EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                        if (tirednessBehavior != null)
+                        {
+                            tirednessBehavior.Tiredness = ConfigSystem.SyncedConfig.TirednessAfterRevival;
+                        }
+                    }
                     return;
                 }
 
@@ -673,7 +677,16 @@ namespace SleepNeed.Energy
                     float weatherTemp = this.entity.World.BlockAccessor.GetClimateAt(this.entity.Pos.AsBlockPos, EnumGetClimateMode.ForSuppliedDate_TemperatureOnly, this.entity.World.Calendar.TotalDays).Temperature;
                     bool isInside = this.entity.World.Api.ModLoader.GetModSystem<RoomRegistry>(true).GetRoomForPosition(this.entity.Pos.AsBlockPos).ExitCount == 0;
                     bool relaxingType = this.RelaxingType;
-                    bool relaxingStatusWelness = this._entityAgent.Controls.FloorSitting && this.entity.FeetInLiquid && ((weatherTemp > 20f) || isInside);
+                    Block blockAtFeet = this.entity.World.BlockAccessor.GetBlock(this.entity.Pos.AsBlockPos, 0);
+                    Block liquidAtFeet = this.entity.World.BlockAccessor.GetBlock(this.entity.Pos.AsBlockPos, 2);
+                    bool isBoilingWater = blockAtFeet.LiquidCode == "boilingwater" || liquidAtFeet.LiquidCode == "boilingwater";
+                    if (!isBoilingWater && this.entity.FeetInLiquid)
+                    {
+                        Block blockBelow = this.entity.World.BlockAccessor.GetBlock(this.entity.Pos.AsBlockPos.DownCopy(), 2);
+                        if (blockBelow.LiquidCode == "boilingwater") isBoilingWater = true;
+                    }
+                    bool relaxingStatusBoilingWelness = this._entityAgent.Controls.FloorSitting && this.entity.FeetInLiquid && isBoilingWater;
+                    bool relaxingStatusWelness = this._entityAgent.Controls.FloorSitting && this.entity.FeetInLiquid && !isBoilingWater && ((weatherTemp >= 20f) || isInside);
                     bool relaxingStatusChilling = this._entityAgent.Controls.FloorSitting && !this.entity.FeetInLiquid;
 
                     if ((double)this.EnergyLossDelay > 0.0)
@@ -681,9 +694,13 @@ namespace SleepNeed.Energy
                         this.EnergyLossDelay -= 10f * satLossMultiplier;
                         flag = true;
                     }
-                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel > 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusWelness)
+                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel > 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusWelness && !relaxingStatusBoilingWelness)
                     {
                         this.Invigorated = Math.Max(0f, this.Invigorated + (((satLossMultiplier * ((this.SleepRatio * this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier) * ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier));
+                    }
+                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel > 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusBoilingWelness)
+                    {
+                        this.Invigorated = Math.Max(0f, this.Invigorated + (((satLossMultiplier * ((this.SleepRatio * this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier) * (ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f)));
                     }
                     // else if (this.CurrentEnergy > 0.6f * ConfigSystem.SyncedConfig.MaxEnergy && this.SleepRatio > 0.7f && !sleepiness.IsOverloadedForEnergy && !this.Starving)
                     // {
@@ -705,9 +722,13 @@ namespace SleepNeed.Energy
                         if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy <= (ConfigSystem.SyncedConfig.MaxEnergy * 0.4f) && !sleepiness.IsOverloadedForEnergy)
                         {
                             energyGained = Math.Max(0f, (((satLossMultiplier * (this.SleepRatio + this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
 
                             if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
@@ -719,51 +740,108 @@ namespace SleepNeed.Energy
                         else if (this.CurrentEnergy > 0.6f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && !sleepiness.IsOverloadedForEnergy)
                         {
                             energyGained = Math.Max(0f, ((satLossMultiplier * this.OverallHealthRatio) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
 
                             if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
                             {
-                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(energyGained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.04f));
+                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(energyGained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.08f));
                             }
                         }
                         // 40% < state < 60% energy
                         else if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && !sleepiness.IsOverloadedForEnergy)
                         {
                             energyGained = Math.Max(0f, ((satLossMultiplier * ((this.SleepRatio + this.OverallHealthRatio) / 2f)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
 
                             if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
                             {
-                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(energyGained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.03f));
+                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(energyGained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.05f));
+                            }
+                        }
+                        // Overloaded + > 75% energy
+                        else if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy > 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.IsOverloadedForEnergy) // (1f - sleepiness.OverloadThreshold) This is to reverse it, because in sleepiness behavior it is used differently.
+                        {
+                            float sleepinessDrained = Math.Max(0f, ((satLossMultiplier * ((this.SleepRatio + this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
+                            energyGained = Math.Max(0f, (((satLossMultiplier * (this.SleepRatio * this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
+                            {
+                                sleepinessDrained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                sleepinessDrained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
+                            }
+
+                            if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
+                            {
+                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(sleepinessDrained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.09f));
                             }
                         }
                         // Overloaded
                         else if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.IsOverloadedForEnergy) // (1f - sleepiness.OverloadThreshold) This is to reverse it, because in sleepiness behavior it is used differently.
                         {
+                            float sleepinessDrained = Math.Max(0f, ((satLossMultiplier * ((this.SleepRatio + this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
                             energyGained = Math.Max(0f, (((satLossMultiplier * (this.SleepRatio * this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
+                                sleepinessDrained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                sleepinessDrained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
 
                             if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
                             {
-                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(energyGained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.01f));
+                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(sleepinessDrained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.06f));
+                            }
+                        }
+                        else if (this.CurrentEnergy > 0.75f * ConfigSystem.SyncedConfig.MaxEnergy)
+                        {
+                            float sleepinessDrained = Math.Max(0f, (((satLossMultiplier * (this.SleepRatio + this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
+                            {
+                                sleepinessDrained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                sleepinessDrained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
+                            }
+
+                            if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
+                            {
+                                sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(sleepinessDrained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.08f));
                             }
                         }
                         // Backup if everything else is not true
-                        else if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy)
+                        else if ((double)this.CurrentEnergy >= 0.0)
                         {
                             energyGained = Math.Max(0f, ((satLossMultiplier * (this.SleepRatio * this.OverallHealthRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier));
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
 
                             if (sleepiness.CurrentSleepinessLevel > 0.7f * ConfigSystem.SyncedConfig.MaxSleepiness)
@@ -771,6 +849,7 @@ namespace SleepNeed.Energy
                                 sleepiness.CurrentSleepinessLevel -= Math.Max(0f, sleepiness.CurrentSleepinessLevel * Math.Clamp(energyGained / ConfigSystem.SyncedConfig.MaxEnergy, 0f, 0.01f));
                             }
                         }
+                        
                         // Hent verdens hastighed (/time csm 0.5 = 1 real life second = 30 in game seconds)
                         float speedOfTime = this.entity.World.Calendar.SpeedOfTime;
                         float realSecondsPassed = 10f; // Det interval _energyCounter kører på
@@ -792,7 +871,7 @@ namespace SleepNeed.Energy
                         this.CurrentEnergy += Math.Max(0f, energyGained);
                         if (this._entityAgent.Controls.FloorSitting && this.RelaxingSpeed > 0f)
                         {
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness || relaxingStatusBoilingWelness)
                             {
                                 this.RelaxingType = true;
                             }
@@ -815,8 +894,17 @@ namespace SleepNeed.Energy
                 {
                     float weatherTemp = this.entity.World.BlockAccessor.GetClimateAt(this.entity.Pos.AsBlockPos, EnumGetClimateMode.ForSuppliedDate_TemperatureOnly, this.entity.World.Calendar.TotalDays).Temperature;
                     bool isInside = this.entity.World.Api.ModLoader.GetModSystem<RoomRegistry>(true).GetRoomForPosition(this.entity.Pos.AsBlockPos).ExitCount == 0;
-                    bool relaxingType = this.RelaxingType;
-                    bool relaxingStatusWelness = this._entityAgent.Controls.FloorSitting && this.entity.FeetInLiquid && ((weatherTemp > 20f) || isInside);
+                    bool relaxingType = this.RelaxingType; 
+                    Block blockAtFeet = this.entity.World.BlockAccessor.GetBlock(this.entity.Pos.AsBlockPos, 0);
+                    Block liquidAtFeet = this.entity.World.BlockAccessor.GetBlock(this.entity.Pos.AsBlockPos, 2);
+                    bool isBoilingWater = blockAtFeet.LiquidCode == "boilingwater" || liquidAtFeet.LiquidCode == "boilingwater";
+                    if (!isBoilingWater && this.entity.FeetInLiquid)
+                    {
+                        Block blockBelow = this.entity.World.BlockAccessor.GetBlock(this.entity.Pos.AsBlockPos.DownCopy(), 2);
+                        if (blockBelow.LiquidCode == "boilingwater") isBoilingWater = true;
+                    }
+                    bool relaxingStatusBoilingWelness = this._entityAgent.Controls.FloorSitting && this.entity.FeetInLiquid && isBoilingWater;
+                    bool relaxingStatusWelness = this._entityAgent.Controls.FloorSitting && this.entity.FeetInLiquid && !isBoilingWater && ((weatherTemp >= 20f) || isInside);
                     bool relaxingStatusChilling = this._entityAgent.Controls.FloorSitting && !this.entity.FeetInLiquid;
 
                     if ((double)this.EnergyLossDelay > 0.0)
@@ -824,9 +912,13 @@ namespace SleepNeed.Energy
                         this.EnergyLossDelay -= 10f * satLossMultiplier;
                         flag = true;
                     }
-                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && !this.Starving && relaxingStatusWelness)
+                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && !this.Starving && relaxingStatusWelness && !relaxingStatusBoilingWelness)
                     {
                         this.Invigorated = Math.Max(0f, this.Invigorated + (((satLossMultiplier * (this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier) * ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier);
+                    }
+                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && !this.Starving && relaxingStatusBoilingWelness)
+                    {
+                        this.Invigorated = Math.Max(0f, this.Invigorated + (((satLossMultiplier * (this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier) * (ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f));
                     }
                     // else if (this.CurrentEnergy > 0.6f * ConfigSystem.SyncedConfig.MaxEnergy && !this.Starving)
                     // {
@@ -845,25 +937,37 @@ namespace SleepNeed.Energy
                         if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy <= (ConfigSystem.SyncedConfig.MaxEnergy * 0.4f))
                         {
                             energyGained = (((satLossMultiplier * (1f + this.OverallHealthRatio))) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier);
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
                         }
                         else if (this.CurrentEnergy > 0.6f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy)
                         {
                             energyGained = ((satLossMultiplier * (this.OverallHealthRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier);
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
                         }
                         else if ((double)this.CurrentEnergy >= 0.0 && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy)
                         {
                             energyGained = Math.Clamp((satLossMultiplier * (0.5f + this.OverallHealthRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier, (satLossMultiplier * 0.5f) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier, (satLossMultiplier * 1f) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier);
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness && !relaxingStatusBoilingWelness)
                             {
                                 energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier;
+                            }
+                            else if (relaxingStatusBoilingWelness)
+                            {
+                                energyGained *= ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f;
                             }
                         }
                         // Hent verdens hastighed (/time csm 0.5 = 1 real life second = 30 in game seconds)
@@ -887,7 +991,7 @@ namespace SleepNeed.Energy
                         this.CurrentEnergy += Math.Max(0f, energyGained);
                         if (this._entityAgent.Controls.FloorSitting && this.RelaxingSpeed > 0f)
                         {
-                            if (relaxingStatusWelness)
+                            if (relaxingStatusWelness || relaxingStatusBoilingWelness)
                             {
                                 this.RelaxingType = true;
                             }
@@ -1388,28 +1492,23 @@ namespace SleepNeed.Energy
             }
             else if (ConfigSystem.SyncedConfig.EnableEnergy)
             {
-                EntityBehaviorBreathe breatheBehavior = this.entity.GetBehavior<EntityBehaviorBreathe>();
-
-
-                if (breatheBehavior != null && ConfigSystem.SyncedConfig.EnableInvigoratedLungCapacityBoost)
+                if (this.entity.World.Side == EnumAppSide.Client)
                 {
-                    float lungBoost = this.lungCapacity + this.BoostLungCapacity;
-                    if (lungBoost != breatheBehavior.MaxOxygen)
-                    {
-                        breatheBehavior.MaxOxygen = lungBoost;
-                    }
-                    if (breatheBehavior.HasAir && breatheBehavior.Oxygen > breatheBehavior.MaxOxygen)
-                    {
-                        breatheBehavior.Oxygen = Math.Clamp(breatheBehavior.Oxygen, 0f, breatheBehavior.MaxOxygen); // Ensure oxygen does not exceed max capacity
-                    }
-
+                    return;
                 }
-                else if (breatheBehavior != null && !ConfigSystem.SyncedConfig.EnableInvigoratedLungCapacityBoost)
+
+                this.BoostLungCapacity = 0f;
+                if (ConfigSystem.SyncedConfig.EnableInvigoratedLungCapacityBoost)
                 {
-                    if (breatheBehavior.MaxOxygen != this.lungCapacity)
-                    {
-                        breatheBehavior.MaxOxygen = this.lungCapacity;
-                    }
+                    this.BoostLungCapacity = (ConfigSystem.SyncedConfig.InvigoratedLungCapacityBoostPercentageOfConfigLungCapacity * (int)(this.lungCapacity / 100)) * (this.OverallHealthRatio * 100f);
+                }
+
+                
+                EntityBehaviorBreathe breathe = this.entity.GetBehavior<EntityBehaviorBreathe>();
+                if (breathe != null)
+                {
+                    // Triggers the Harmony Setter Patch without changing the Base value
+                    breathe.MaxOxygen = breathe.MaxOxygen;
                 }
 
                 if (this.entity.Stats != null && ConfigSystem.SyncedConfig.EnableInvigoratedHealthBoost)
@@ -1489,6 +1588,14 @@ namespace SleepNeed.Energy
             }
             else if (ConfigSystem.SyncedConfig.EnableEnergy)
             {
+                if (this.entity != null && ConfigSystem.SyncedConfig.DisableTiredness)
+                {
+                    EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                    if (tirednessBehavior != null)
+                    {
+                        tirednessBehavior.Tiredness = 10f;
+                    }
+                }
                 if (!ConfigSystem.SyncedConfig.EnableSleepiness)
                 {
                     EntityPlayer player = this.entity as EntityPlayer;
@@ -1513,7 +1620,7 @@ namespace SleepNeed.Energy
                             EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
                             if (tirednessBehavior != null)
                             {
-                                tirednessBehavior.Tiredness = 5f;
+                                tirednessBehavior.Tiredness = ConfigSystem.SyncedConfig.TirednessAfterSleep;
                             }
                         }
                     }
@@ -1608,7 +1715,7 @@ namespace SleepNeed.Energy
                 this.EnergyRatioHighEnergyPart2 = (1f - 2f * (1f - this.EnergyRatioHighEnergy));
                 this.EnergyRatioLowEnergy = Math.Clamp((0.5f / (0.3f * ConfigSystem.SyncedConfig.MaxEnergy)) * this.CurrentEnergy, 0f, 0.5f);
                 this.EnergyRatioLowEnergyPart2 = (1f - 2f * (1f - this.EnergyRatioLowEnergy));
-                this.BoostLungCapacity = (ConfigSystem.SyncedConfig.InvigoratedLungCapacityBoostPercentageOfConfigLungCapacity * (int)(this.lungCapacity / 100)) * (this.OverallHealthRatio * 100f);
+                
                 if (healthBehavior != null)
                 {
                     this.BoostHealthPoints = ((ConfigSystem.SyncedConfig.InvigoratedHealthBoostPercentageOfMaxHealth * healthBehavior.BaseMaxHealth) / 100f) * (this.OverallHealthRatio * 100f);
@@ -1771,7 +1878,11 @@ namespace SleepNeed.Energy
                 }
 
                 var healthBehavior = this.entity.GetBehavior<EntityBehaviorHealth>();
-                if (damageSource.Type == EnumDamageType.Heal && healthBehavior != null)
+                if (damageSource.Type == EnumDamageType.Heal && damageSource.Source == EnumDamageSource.Block)
+                {
+                    this.EnergyLossDelay = 0f;
+                }
+                else if (damageSource.Type == EnumDamageType.Heal && healthBehavior != null)
                 {
                     this.EnergyLossDelay = 60f;
                     if (ConfigSystem.SyncedConfig.DrainEnergyWhenHealing)
@@ -1969,7 +2080,7 @@ namespace SleepNeed.Energy
 
         private float SleepRatio;
 
-        private float BoostLungCapacity;
+        public float BoostLungCapacity;
 
         private float BoostHealthPoints;
 

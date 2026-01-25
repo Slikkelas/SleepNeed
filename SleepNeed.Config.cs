@@ -73,7 +73,7 @@ namespace SleepNeed.Config
         public string Max_Energy { get; set; } = "                                          MAX ENERGY                                                🗘 (900)          -  Set the base max energy amount.";
         public float MaxEnergy { get; set; } = 900f;
         public string Energy_Modifiers { get; set; } = "            ----------------------  ENERGY MODIFIERS  ----------------------                  -  Example: 1.0 means no change, 0.5 means half the energy cost, 2.0 means double the energy cost. (1.0 = 100%, 0.5 = 50%)";
-        public string Energy_Speed_Modifier { get; set; } = "                               OVERALL                         -  ENERGY COST            🗘 (0.0)          -  Modifier for how fast energy drains. If this is 0.0, the speed is determined by world start config HungerSpeedModifier = 1. If you wanna reduce energy cost you can then only go as low as 0.1";
+        public string Energy_Speed_Modifier { get; set; } = "                               OVERALL                         -  ENERGY COST            🗘 (0.0)          -  Modifier for how fast energy drains. If this is 0.0, the speed is determined by world start config HungerSpeedModifier = 1. If you wanna reduce energy cost you can then only go as low as 0.1 (0.5 = Energy drains 50% slower)";
         public float EnergySpeedModifier { get; set; } // Modifier for how fast energy drains. If this is not set, the speed is determined by GlobalConstants.HungerSpeedModifier
         public string Movement_Energy_Cost_Modifier { get; set; } = "                       MOVEMENT                        -  ENERGY COST            🗘 (1.0)          -  Modifier for movement like walking or sneaking. Example: 1.0 means no change, 0.5 means half the energy cost, 2.0 means double the energy cost. (1.0 = 100%, 0.5 = 50%)";
         public float MovementEnergyCostModifier { get; set; } = 1.0f; // Modifier for movement energy cost, 1.0f means no change, 0.5f means half the energy cost, 2.0f means double the energy cost.
@@ -253,8 +253,13 @@ namespace SleepNeed.Config
         public float EnergyRestoredBySleepingModifier { get; set; } = 0.75f; // Factor for how fast energy regenerates when sleeping.
         public string Energy_From_Sleep_When_Refreshed_Modifier { get; set; } = "           REFRESHED SLEEP                 -  ENERGY GAIN            🗘 (1.35)         -  When sleepiness is fully drained, and you are still sleeping, you then gain additional energy while sleeping. (1.35 = 35% increase in energy restored)";
         public float EnergyFromSleepWhenRefreshedModifier { get; set; } = 1.35f; // The factor by which the energy is regenerated from sleeping when sleepiness is fully drained.
-        public string Delay_Seconds { get; set; } = "                                       DELAY SLEEPINESS                -  TIME                   🗘 (5)            -  This is used to delay sleepiness gain after waking up for X amount of real life seconds.";
+        public string Delay_Seconds { get; set; } = "                                       DELAY SLEEPINESS                -  TIME                   🗘 (25)           -  This is used to delay sleepiness gain after waking up for X amount of real life seconds.";
         public float DelaySeconds { get; set; } = 25f;
+        public string Tiredness_After_Sleep { get; set; } = "                               TIREDNESS VALUE                 -  TIME                   🗘 (5)            -  Tiredness is the vanilla mechanic that determines when you can sleep again, after waking up. Tiredness goes up as time goes and when it hits a value of 8, the player is allowed to sleep. Setting this to 5 results in a 4 in-game hours delay after waking up, before the player can sleep again for all bed types. Set this to 8 or above to be able to sleep as soon as you want after waking up.";
+        public float TirednessAfterSleep { get; set; } = 5f;
+        public float TirednessAfterRevival { get; set; } = 5f;
+        public string Disable_Vanilla_Tiredness { get; set; } = "                           DISABLE VANILLA TIREDNESS       -  VANILLA MECHANIC       🗘 (false)        -  Disable the vanilla tiredness mechanic if set to true. This means the player can now sleep any time they want.";
+        public bool DisableTiredness { get; set; } = false;
         public string Disable_Behaviors { get; set; } = "           ----------------------  DISABLE MOD BEHAVIORS  ---------------------                                -  Here you can turn off Energy or Sleepiness and only keep the behavior you want. You can also turn off all stat changes if you don't want the mod touching any stats at all.";
         public string Disable_Behaviors_Note { get; set; } = "                   -----   🕱 🚫  WARNING! 🚫 🕱   -----       -  Only Enable/Disable Energy or Sleepiness when out of game, so the world can load with the new config";
         public string Enable_Energy { get; set; } = "                                       ENABLE ENERGY                   -  MOD SYSTEM             🗘 (true)         -  You can disable the energy system and only keep the sleepiness, there will bee slight changes to the mod and what it affects.";
@@ -374,7 +379,10 @@ namespace SleepNeed.Config
                 SleepDebuffFromLowEnergy = this.SleepDebuffFromLowEnergy,
                 EnergyRestoredBySleepingModifier = this.EnergyRestoredBySleepingModifier,
                 EnergyFromSleepWhenRefreshedModifier = this.EnergyFromSleepWhenRefreshedModifier,
-                DelaySeconds = this.DelaySeconds
+                DelaySeconds = this.DelaySeconds,
+                TirednessAfterSleep = this.TirednessAfterSleep,
+                TirednessAfterRevival = this.TirednessAfterRevival,
+                DisableTiredness = this.DisableTiredness
             };
         }
 
@@ -418,7 +426,7 @@ namespace SleepNeed.Config
             this.EnableEnergyDependedRangedWeaponDamage = previousConfig.EnableEnergyDependedRangedWeaponDamage;
             this.RangedWeaponDamageBoostFromEnergy = previousConfig.RangedWeaponDamageBoostFromEnergy;
             this.RangedWeaponDamageDebuffFromEnergy = previousConfig.RangedWeaponDamageDebuffFromEnergy;
-            this.EnableEnergyDependedMeleeWeaponDamage = previousConfig.EnableEnergyDependedRangedWeaponDamage;
+            this.EnableEnergyDependedMeleeWeaponDamage = previousConfig.EnableEnergyDependedMeleeWeaponDamage;
             this.MeleeWeaponDamageBoostFromEnergy = previousConfig.MeleeWeaponDamageBoostFromEnergy;
             this.MeleeWeaponDamageDebuffFromEnergy = previousConfig.MeleeWeaponDamageDebuffFromEnergy;
             this.EnableEnergyDependedArmorWalkSpeedAffectedness = previousConfig.EnableEnergyDependedArmorWalkSpeedAffectedness;
@@ -488,6 +496,9 @@ namespace SleepNeed.Config
             this.GainSleepinessWhenHealing = previousConfig.GainSleepinessWhenHealing;
             this.GainSleepinessWhenHealingModifier = previousConfig.GainSleepinessWhenHealingModifier;
             this.DelaySeconds = previousConfig.DelaySeconds;
+            this.TirednessAfterSleep = previousConfig.TirednessAfterSleep;
+            this.TirednessAfterRevival = previousConfig.TirednessAfterRevival;
+            this.DisableTiredness = previousConfig.DisableTiredness;
 
             // Master Switches
             this.EnableEnergy = previousConfig.EnableEnergy;
@@ -611,72 +622,62 @@ namespace SleepNeed.Config
         [ProtoMember(91)] public float EnergyFromSleepWhenRefreshedModifier { get; set; }
         [ProtoMember(92)] public float DelaySeconds { get; set; }
         [ProtoMember(93)] public float SprintingWarmth { get; set; }
+        [ProtoMember(94)] public float TirednessAfterSleep { get; set; }
+        [ProtoMember(95)] public float TirednessAfterRevival { get; set; }
+        [ProtoMember(96)] public bool DisableTiredness { get; set; }
 
         public SyncedConfig()
         {
         }
 
-        public SyncedConfig Clone() // Maybe delete this one since it's not used
+        public SyncedConfig Clone() 
         {
             return (SyncedConfig)this.MemberwiseClone();
         }
     }
 
 
-    
+
     public static class ModConfig
     {
-        
         public static T ReadConfig<T>(ICoreAPI api, string jsonConfig) where T : IModConfig
         {
             T config;
             try
             {
-                config = ModConfig.LoadConfig<T>(api, jsonConfig);
-                if (config == null)
-                {
-                    ModConfig.GenerateConfig<T>(api, jsonConfig);
-                    config = ModConfig.LoadConfig<T>(api, jsonConfig);
-                }
-                else
-                {
-                    ModConfig.GenerateConfig<T>(api, jsonConfig, config);
-                }
+                config = api.LoadModConfig<T>(jsonConfig);
             }
-            catch
+            catch (System.Exception e)
             {
-                ModConfig.GenerateConfig<T>(api, jsonConfig);
-                config = ModConfig.LoadConfig<T>(api, jsonConfig);
+                api.Logger.Error("Failed to load custom config for {0}. Error: {1}", jsonConfig, e.Message);
+                config = null;
             }
+
+            if (config == null)
+            {
+                
+                config = (T)Activator.CreateInstance(typeof(T), api, null);
+
+                
+                string updatePath = Path.Combine(api.GetOrCreateDataPath("ModConfig"), jsonConfig);
+
+                if (!System.IO.File.Exists(updatePath))
+                {
+                    api.StoreModConfig(config, jsonConfig);
+                }
+            }
+            else
+            {
+                
+                api.StoreModConfig(config, jsonConfig);
+            }
+
             return config;
         }
 
-        
         public static void WriteConfig<T>(ICoreAPI api, string jsonConfig, T config) where T : IModConfig
         {
-            ModConfig.GenerateConfig<T>(api, jsonConfig, config);
-        }
-
-        
-        private static T LoadConfig<T>(ICoreAPI api, string jsonConfig) where T : IModConfig
-        {
-            return api.LoadModConfig<T>(jsonConfig);
-        }
-
-        
-        private static void GenerateConfig<T>(ICoreAPI api, string jsonConfig, T previousConfig = default(T)) where T : IModConfig
-        {
-            api.StoreModConfig<T>(ModConfig.CloneConfig<T>(api, previousConfig), jsonConfig);
-        }
-
-        
-        private static T CloneConfig<T>(ICoreAPI api, T config = default(T)) where T : IModConfig
-        {
-            return (T)Activator.CreateInstance(typeof(T), new object[]
-            {
-                api,
-                config
-            });
+            api.StoreModConfig(config, jsonConfig);
         }
 
         

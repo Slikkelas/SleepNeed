@@ -23,7 +23,6 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
             return !ConfigSystem.SyncedConfig.EnableEnergy;
         }
 
-        // Postfix betyder, at denne kode kører EFTER spillets originale metode er færdig.
         // __instance er en reference til den instans af CharacterExtraDialogs, der kører.
         public static void Postfix(CharacterExtraDialogs __instance)
         {
@@ -46,10 +45,9 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
             IClientPlayer player = capi.World.Player;
             if (player == null || player.Entity == null)
             {
-                return; // Stop if the player doesn't exist yet
+                return; // Stopper hvis spilleren ikke eksistere.
             }
             EntityPlayer entity = player.Entity;
-            // --- SIKKERHEDSCHECKS ---
             float energyrate = 1.0f; // Standardværdi på 1.0f (100%)
             float? energyGain; // Standardværdi på 1.0f (100%)
             float? currentenergylevel;
@@ -77,7 +75,7 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
             // ------------
             // OVERALL HEALTH:
             // Bruger Fixed position for at sikre alignment (25.0 + 15.0 = 40.0 i start Y-koordinat)
-            ElementBounds labelBoundsOverallHealth = ElementBounds.Fixed(0.0, 45.0, 90.0, 20.0); // NYT: Label til Overall Health (Y=40.0) (                       default:(0.0, 40.0, 90.0, 20.0);)
+            ElementBounds labelBoundsOverallHealth = ElementBounds.Fixed(0.0, 45.0, 90.0, 20.0); // NYT: Label til Overall Health (Y=40.0) (default:(0.0, 40.0, 90.0, 20.0);)
             ElementBounds statbarBoundsOverallHealth = ElementBounds.Fixed(120.0, 50.0, 120.0, 8.0); // NYT: Bar til Overall Health (Y=45.0, med offset -5.0 -> Y=40.0) default:(120.0, 45.0, 120.0, 8.0);
             // ---------------
             ElementBounds leftColumnBoundsW = ElementBounds.Fixed(0.0, 0.0, 140.0, 20.0); // Venstre kolonne
@@ -89,9 +87,9 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
             
             
             // HER BYGGES GUI'EN:
-            // 1. Opretter en ny GuiComposer med navnet "modstats".
-            // 2. Tilføjer en skygge-baggrund (ShadedDialogBG).
-            // 3. Tilføjer en titel-bar "Energy Stats".
+            // Opretter en ny GuiComposer med navnet "modstats".
+            // Tilføjer en skygge-baggrund (ShadedDialogBG).
+            // Tilføjer en titel-bar "Energy Stats".
             composers["modstats"] = Vintagestory.API.Client.GuiComposerHelpers.AddDialogTitleBar(Vintagestory.API.Client.GuiComposerHelpers.AddShadedDialogBG(capi.Gui.CreateCompo("modstats", windowPlacement), windowSize, true, 5.0, 0.75f), Lang.Get(BtCore.Modid + ":playerinfo-energy-stats", Array.Empty<object>()), delegate ()
             {
                 dlg.OnTitleBarClose(); // Luk-knap funktionalitet
@@ -109,7 +107,7 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
                     ModGuiStyle.InvigorationBarColor, 
                     "energyHealthBar"
                 );
-                // ------------
+                
 
                 // OVERALL HEALTH
                 ElementBounds refBoundsHealth;
@@ -119,7 +117,7 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
                     GuiStyle.HealthBarColor,
                     "overallHealthBar"
                 );
-                // ------------
+                
                 // Opdaterer layout-ankeret til at være under den SIDSTE bar (Health bar)
                 leftColumnBoundsW = leftColumnBoundsW.FixedUnder(refBoundsHealth, -5.0); // Justerer layoutet til næste element.
             }
@@ -237,21 +235,21 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
             float? overallHealthRatio;
 
             CharacterExtraDialogs_UpdateStatBars_Patch.getCurrentBoostLevel(entity, out invigorated, out maxInvigorated, out overallHealthRatio);
-            // Vi bruger '??' operatoren som betyder "hvis venstre side er null, så brug højre side".
+            // Bruger '??' operatoren som betyder "hvis venstre side er null, så brug højre side".
             float safeInvigorated = invigorated ?? 0f;
             float safeMaxInvigorated = maxInvigorated ?? 900f; // Default til 100 hvis config fejler
             float safeOverallHealth = overallHealthRatio ?? 0f;
             // Opdaterer stat-baren "energyHealthBar".
             Vintagestory.API.Client.GuiComposerHelpers.GetStatbar(composer, "energyHealthBar").SetLineInterval(100f);
             Vintagestory.API.Client.GuiComposerHelpers.GetStatbar(composer, "energyHealthBar").SetValues(safeInvigorated, 0f, safeMaxInvigorated);
-            // ----------------------------------
+            
 
-            // --- Opdater Overall Health Bar ---
+            // Opdater Overall Health Bar
             // Sætter værdierne for Overall Health (Min: 0, Max: 1)
-            // Vi bruger interval 0.1 (10%), da værdien er mellem 0 og 1
+            // Bruger interval 0.1 (10%), da værdien er mellem 0 og 1
             Vintagestory.API.Client.GuiComposerHelpers.GetStatbar(composer, "overallHealthBar").SetLineInterval(0.1f);
             Vintagestory.API.Client.GuiComposerHelpers.GetStatbar(composer, "overallHealthBar").SetValues(safeOverallHealth, 0f, 1f);
-            // ---------------------------------------------------
+            
         }
         private static void getCurrentBoostLevel(EntityPlayer entity, out float? invigorated, out float? maxInvigorated, out float? overallHealthRatio)
         {
@@ -371,12 +369,11 @@ namespace SleepNeed.HarmonyPatches.CharExtraDialogs
                     colorToUse = Vintagestory.API.Client.CairoFont.WhiteDetailText().Color;
                 }
 
-                // HER SKER MAGIEN:
-                // Vi tager standard fonten (WhiteDetailText) og påfører vores valgte farve med .WithColor()
-                // Så sætter vi elementets font til denne nye, farvede version.
+                // Tager standard fonten (WhiteDetailText) og påfører vores valgte farve med .WithColor()
+                // Så sættes elementets font til denne nye, farvede version.
                 relaxingtypeText.Font = Vintagestory.API.Client.CairoFont.WhiteDetailText().WithColor(colorToUse);
 
-                // Til sidst opdaterer vi teksten som normalt
+                // Til sidst opdateres teksten som normalt
                 relaxingtypeText.SetNewText(relaxingtypeString, false, false, false);
             }
         }

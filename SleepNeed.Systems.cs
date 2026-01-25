@@ -6,6 +6,8 @@ using SleepNeed.Energy;
 using SleepNeed.HarmonyPatches.CharExtraDialogs;
 using SleepNeed.HarmonyPatches.EnergyJumpFactorPatch;
 using SleepNeed.HarmonyPatches.SaturationSlowTickPatch;
+using SleepNeed.HarmonyPatches.MiningWhenSittingPatch;
+using SleepNeed.HarmonyPatches.BreathePatches;
 using SleepNeed.Hud;
 using SleepNeed.Sleepiness;
 using SleepNeed.Util;
@@ -287,22 +289,18 @@ namespace SleepNeed.Systems
         {
             this.sapi = sapi;
             sapi.Network.RegisterChannel("SleepNeedAdrenaline").RegisterMessageType<AdrenalineMessagePacket>();
-            // --- NYT Netværks-setup for GroundBed ---
+            
             _groundBedChannelServer = sapi.Network.RegisterChannel("SleepNeedGroundBed").RegisterMessageType<PlaceGroundBedPacket>().SetMessageHandler<PlaceGroundBedPacket>(OnReceivePlaceGroundBedPacket);
             _groundBedBuildStateChannelServer = sapi.Network.RegisterChannel("SleepNeedGroundBedBuildState").RegisterMessageType<BuildingGroundBedPacket>().SetMessageHandler<BuildingGroundBedPacket>(OnReceiveGroundBedBuildStatePacket);
-            // ----------------------------------------
-            // --- NYT til "Perish"-logik ---
-            // Tjekker sove-status hvert sekund. Det er rigeligt.
+            
             _serverSleepCheckListenerId = sapi.Event.RegisterGameTickListener(OnServerGameTick, 1000);
             sapi.Event.PlayerLeave += OnPlayerLeave;
-            // ---
+            
             sapi.Event.OnEntitySpawn += new EntityDelegate(this.AddEntityBehaviors);
             sapi.Event.OnEntityLoaded += new EntityDelegate(this.AddEntityBehaviors);
             sapi.Event.PlayerJoin += delegate (IServerPlayer player)
             {
                 this.OnPlayerJoin(player.Entity);
-                // This ensures that when the first player (Singleplayer) or any player (Multiplayer)
-                // joins, the config is fresh and synced, and behaviors are re-initialized.
                 BtCommands.ForceReloadConfig(sapi);
             };
             sapi.Event.RegisterEventBusListener(new EventBusListenerDelegate(this.OnConfigReloaded), 0.5, EventIds.ConfigReloaded);
@@ -314,18 +312,45 @@ namespace SleepNeed.Systems
         {
             this.capi = capi;
             capi.Network.RegisterChannel("SleepNeedAdrenaline").RegisterMessageType<AdrenalineMessagePacket>().SetMessageHandler<AdrenalineMessagePacket>(OnClientReceivesAdrenalineMessage);
-            // --- NYT Netværks-setup for GroundBed ---
+            
             _groundBedChannelClient = capi.Network.RegisterChannel("SleepNeedGroundBed").RegisterMessageType<PlaceGroundBedPacket>();
-            // ----------------------------------------
+            
             capi.Gui.RegisterDialog(new GuiDialog[]
             {
                 new EnergyBarHudElement(capi)
             });
+
             capi.Event.RegisterEventBusListener(new EventBusListenerDelegate(this.OnConfigReloaded), 0.5, EventIds.ConfigReloaded);
             ConfigSystem.StartClientSide(capi);
-            // --- NY Global Tick Listener (som du bad om) ---
             _groundBedTickListenerId = capi.Event.RegisterGameTickListener(OnClientGameTick, 20); // 20ms = 50x i sekundet
             _groundBedBuildStateChannelClient = capi.Network.RegisterChannel("SleepNeedGroundBedBuildState").RegisterMessageType<BuildingGroundBedPacket>();
+
+            capi.ChatCommands.Create("sleepneedclientreload")
+                .WithDescription("Reloads local client settings (HUD positions, colors).")
+                .HandleWith((TextCommandCallingArgs args) =>
+            {
+                try
+                {
+            
+                    var newConfig = ModConfig.ReadConfig<ConfigClient>(capi, BtConstants.ConfigClientName);
+
+                    if (newConfig != null)
+                    {
+                        ConfigSystem.ConfigClient = newConfig;
+                        capi.Event.PushEvent(EventIds.ConfigReloaded, null);
+
+                        return TextCommandResult.Success("Client config reloaded and HUD updated.");
+                    }
+                    else
+                    {
+                        return TextCommandResult.Error("Failed to read client config file.");
+                    }
+                }
+                catch (Exception e)
+                {
+                        return TextCommandResult.Error($"Error reloading client config: {e.Message}");
+                }
+            });
         }
 
         private void OnClientGameTick(float dt)
@@ -337,23 +362,17 @@ namespace SleepNeed.Systems
 
             if (playerEntity == null) return;
 
-            // Tjek 1: Holder spilleren "sneak" knappen nede?
+            
             bool sneakHeld = capi.Input.IsHotKeyPressed("sneak");
 
-            // Tjek 2: Holder højre-klik?
             bool leftClickHeld = capi.Input.InWorldMouseButton.Left;
 
-            // Tjek 3: Er hånden tom?
             bool handEmpty = player.InventoryManager.ActiveHotbarSlot.Empty;
 
-            // Tjek 4: Sidder spilleren ned?
             bool isSitting = player.Entity.Controls.FloorSitting;
 
-            // Find ud af, om vi bygger LIGE NU
             bool isCurrentlyBuilding = sneakHeld && leftClickHeld && handEmpty && isSitting;
 
-            // Opdater den *lokale* spillers behavior med det samme.
-            //    (Så klient-side patches reagerer øjeblikkeligt)
             var energyBehavior = playerEntity.GetBehavior<EntityBehaviorEnergy>();
             var sleepinessBehavior = playerEntity.GetBehavior<EntityBehaviorSleepiness>();
             if (energyBehavior != null)
@@ -365,35 +384,26 @@ namespace SleepNeed.Systems
                 sleepinessBehavior.PlayerIsBuildingGroundBed = isCurrentlyBuilding;
             }
 
-            // 2. Synkroniser med serveren, HVIS statussen har ændret sig
-            //    (Dette forhindrer os i at sende 60 pakker i sekundet)
             if (isCurrentlyBuilding != _wasBuildingGroundBedLastTick)
             {
                 _groundBedBuildStateChannelClient?.SendPacket(new BuildingGroundBedPacket { IsBuildingGroundBed = isCurrentlyBuilding });
                 _wasBuildingGroundBedLastTick = isCurrentlyBuilding;
             }
-            // ---
-
-            // Hvis alle start-betingelser er mødt
+           
             if (isCurrentlyBuilding)
             {
                 BlockSelection currentTarget = player.CurrentBlockSelection;
 
-                // Tjek 4: Kigger vi på en blok?
                 if (currentTarget != null)
                 {
-                    // Tjek 5: Kigger vi på den *samme* blok som sidst?
                     if (_lastTargetedBlock != null &&
                         _lastTargetedBlock.Position.Equals(currentTarget.Position) &&
                         _lastTargetedBlock.Face.Equals(currentTarget.Face))
                     {
-                        // Ja - fortsæt timeren
                         _groundBedPlacementTimer += dt;
 
-                        // Tjek 6: Er der gået 5 sekunder?
                         if (_groundBedPlacementTimer >= 5.0f)
                         {
-                            // SUCCES! Send pakke og nulstil.
                             SendPlaceGroundBedPacket(currentTarget);
                             _groundBedPlacementTimer = 0f;
                             _lastTargetedBlock = null;
@@ -401,57 +411,46 @@ namespace SleepNeed.Systems
                     }
                     else
                     {
-                        // Nej - dette er en ny blok. Nulstil timer og gem ny target.
                         _groundBedPlacementTimer = 0f;
-                        _lastTargetedBlock = currentTarget.Clone(); // VIGTIGT at klone!
+                        _lastTargetedBlock = currentTarget.Clone(); 
                     }
                 }
                 else
                 {
-                    // Kigger ikke på en blok, nulstil
                     _groundBedPlacementTimer = 0f;
                     _lastTargetedBlock = null;
                 }
             }
             else
             {
-                // Betingelser er ikke (længere) mødt, nulstil
                 _groundBedPlacementTimer = 0f;
                 _lastTargetedBlock = null;
             }
         }
 
-        // --- NY METODE: Server-tick der tjekker, om spillere vågner ---
+        
         private void OnServerGameTick(float dt)
         {
             if (sapi == null) return;
 
-            // Vi itererer over alle spillere, der er registreret som sovende
             foreach (IServerPlayer player in sapi.World.AllOnlinePlayers)
             {
-                // Vi skal sikre os, at spilleren faktisk har en krop (Entity).
-                // Under respawn eller login kan denne være null et kort øjeblik.
-                if (player.Entity == null) continue;
+                if (player.ConnectionState != EnumClientState.Playing || player.Entity == null) continue;
                 string uid = player.PlayerUID;
-                // --- NY LOGIK: Afstandstjek til GroundBed ---
-                // Vi tjekker først, om spilleren overhovedet har en seng stående
+                
                 if (_temporaryBedsByPlayerUID.TryGetValue(uid, out BlockPos bedPos))
                 {
-                    // Vi definerer, hvor langt man må gå væk (f.eks. 10 blokke)
                     double maxDistance = 20.0;
 
-                    // Vi bruger SquareDistanceTo, da det er hurtigere for CPU'en end almindelig Distance (ingen kvadratrod)
-                    // Vi tilføjer 0.5 til bedPos for at måle fra midten af blokken
                     double distSq = player.Entity.Pos.SquareDistanceTo(bedPos.X + 0.5, bedPos.Y, bedPos.Z + 0.5);
 
-                    // Hvis afstanden er større end max (i anden potens), fjern sengen
                     if (distSq > (maxDistance * maxDistance))
                     {
                         DestroyTemporaryBed(player.Entity.World, bedPos, uid);
-                        // Vi fortsætter ikke, da sengen nu er væk, så vi behøver ikke tjekke om de vågner i den
+                        
                     }
                 }
-                // ---------------------------------------------
+                
                 var tirednessBehavior = player.Entity.GetBehavior<EntityBehaviorTiredness>();
 
                 if (tirednessBehavior == null) continue;
@@ -459,49 +458,40 @@ namespace SleepNeed.Systems
                 bool isCurrentlySleeping = tirednessBehavior.IsSleeping;
                 bool wasSleeping = _playerWasSleeping.ContainsKey(uid) && _playerWasSleeping[uid];
 
-                // Fangede vi øjeblikket, de vågnede?
                 if (wasSleeping && !isCurrentlySleeping)
                 {
-                    // Har denne spiller en midlertidig seng, der skal fjernes?
                     if (_temporaryBedsByPlayerUID.TryGetValue(uid, out BlockPos existingBedPos))
                     {
                         DestroyTemporaryBed(player.Entity.World, bedPos, uid);
                     }
                 }
 
-                // Opdater status til næste tick
                 _playerWasSleeping[uid] = isCurrentlySleeping;
             }
         }
 
-        // --- NY HJÆLPE-METODE: Fjerner sengen og rydder op i listerne ---
+        
         private void DestroyTemporaryBed(IWorldAccessor world, BlockPos bedPos, string playerUid)
         {
-            // Tjek om blokken stadig er en groundbed
             Block block = world.BlockAccessor.GetBlock(bedPos);
             if (block.Code.Domain == BtCore.Modid && block.Code.Path.StartsWith("groundbed-head"))
             {
-                // Sæt blokken til "air" (fjerner den)
                 world.BlockAccessor.SetBlock(0, bedPos);
                 sapi.Logger.Notification($"[SleepNeed] Removed temporary groundbed for player {playerUid} at {bedPos}.");
             }
 
-            // Fjern sengen fra listen, så vi ikke prøver igen
             if (_temporaryBedsByPlayerUID.ContainsKey(playerUid))
             {
                 _temporaryBedsByPlayerUID.Remove(playerUid);
             }
         }
 
-        // --- NY METODE: Modtager 'IsBuilding'-status fra klienten ---
         private void OnReceiveGroundBedBuildStatePacket(IServerPlayer player, BuildingGroundBedPacket packet)
         {
             if (player.Entity == null) return;
-            // Find serverens version af spillerens behavior
             var energyBehavior = player.Entity?.GetBehavior<EntityBehaviorEnergy>();
             if (energyBehavior != null)
             {
-                // Opdater serverens 'bool'
                 energyBehavior.PlayerIsBuildingGroundBed = packet.IsBuildingGroundBed;
             }
             var sleepinessBehavior = player.Entity.GetBehavior<EntityBehaviorSleepiness>();
@@ -525,7 +515,6 @@ namespace SleepNeed.Systems
         {
             try
             {
-                // --- 1. Validering og Opsætning ---
                 BlockFacing face = BlockFacing.ALLFACES[packet.FaceIndex];
                 if (face == null)
                 {
@@ -533,22 +522,18 @@ namespace SleepNeed.Systems
                     return;
                 }
 
-                // Tjek om spillerens 'Entity' er gyldig, FØR vi bruger den.
                 if (player.Entity == null)
                 {
                     sapi.Logger.Error($"[SleepNeed] GroundBed place failed: player.Entity is null for player {player.PlayerName}.");
                     return;
                 }
-                // ---
-
-                // Er spillerens position (som indeholder Yaw) gyldig?
+                
                 if (player.Entity.Pos == null)
                 {
                     sapi.Logger.Error($"[SleepNeed] GroundBed place failed: player.Entity.Pos is null for player {player.PlayerName}.");
                     return;
                 }
-                // ---
-
+                
                 if (!player.InventoryManager.ActiveHotbarSlot.Empty)
                 {
                     sapi.Logger.Warning($"[SleepNeed] Player {player.PlayerName} tried to place groundbed with item in hand.");
@@ -564,11 +549,7 @@ namespace SleepNeed.Systems
                     return;
                 }
 
-                // FØR (CRASHEDE): string orientation = Block.SuggestedHVOrientation(player, bSel)[0].Code;
-                // NU: Vi beregner det selv ud fra spillerens Yaw. Dette er meget mere sikkert.
                 string orientation = BlockFacing.HorizontalFromYaw(player.Entity.Pos.Yaw).Code;
-
-                // ---
 
                 string headBlockCode = "groundbed-head-" + orientation;
                 AssetLocation blockCodeToPlace = new AssetLocation(BtCore.Modid, headBlockCode);
@@ -580,8 +561,6 @@ namespace SleepNeed.Systems
                     return;
                 }
 
-                // --- 3. Validering og Placering ---
-                // Vi skal stadig bruge en BlockSelection til CanPlaceBlock/DoPlaceBlock
                 Block blockAtPlacePos = world.BlockAccessor.GetBlock(placePos);
                 if (blockAtPlacePos == null)
                 {
@@ -619,12 +598,11 @@ namespace SleepNeed.Systems
 
         public override void Dispose()
         {
-            // Sørg for at af-registrere din nye listener!
             if (capi != null)
             {
                 capi.Event.UnregisterGameTickListener(_groundBedTickListenerId);
             }
-            // --- NYT ---
+            
             if (sapi != null)
             {
                 sapi.Event.UnregisterGameTickListener(_serverSleepCheckListenerId);
@@ -632,11 +610,10 @@ namespace SleepNeed.Systems
                 sapi.Event.OnEntitySpawn -= this.AddEntityBehaviors;
                 sapi.Event.OnEntityLoaded -= this.AddEntityBehaviors;
             }
-            // ---
-            // Nulstil statiske referencer for at undgå memory leaks og "gamle" data ved reload
+            
             ConfigSystem.ConfigLoaded = false;
-            ConfigSystem.SyncedConfig = null; // Tving en ny reload næste gang
-            // (Nulstil dine channels, hvis du har lyst)
+            ConfigSystem.SyncedConfig = null; 
+            
             _groundBedChannelClient = null;
             _groundBedChannelServer = null;
             _lastTargetedBlock = null;
@@ -649,18 +626,15 @@ namespace SleepNeed.Systems
             BtCommands.ForceReloadConfig(sapi);
         }
 
-        // --- NY METODE: Håndterer oprydning, hvis spilleren logger af ---
         private void OnPlayerLeave(IServerPlayer player)
         {
             string uid = player.PlayerUID;
 
-            // Fjern dem fra status-listen
             if (_playerWasSleeping.ContainsKey(uid))
             {
                 _playerWasSleeping.Remove(uid);
             }
 
-            // Tjek om de efterlader en midlertidig seng
             if (_temporaryBedsByPlayerUID.TryGetValue(uid, out BlockPos bedPos))
             {
                 DestroyTemporaryBed(player.Entity.World, bedPos, uid);
@@ -677,7 +651,7 @@ namespace SleepNeed.Systems
             {
                 EntityBehaviorEnergy energyBehavior = new EntityBehaviorEnergy(entity);
                 entity.AddBehavior(energyBehavior);
-                energyBehavior.Initialize(entity.Properties, new JsonObject(new JObject())); // Manual init
+                energyBehavior.Initialize(entity.Properties, new JsonObject(new JObject())); 
             }
             var sleepinessBehaviorExists = entity.GetBehavior<EntityBehaviorSleepiness>();
             if (sleepinessBehaviorExists == null)
@@ -702,9 +676,6 @@ namespace SleepNeed.Systems
                     var energyBehavior = entity.GetBehavior<EntityBehaviorEnergy>();
                     if (energyBehavior != null)
                     {
-                        // By calling Initialize again with the current properties, 
-                        // the behavior will read the NEW values from SyncedConfig 
-                        // and re-apply the correct stat modifiers.
                         energyBehavior.Initialize(entity.Properties, null);
                     }
 
@@ -721,13 +692,10 @@ namespace SleepNeed.Systems
 
         private void OnClientReceivesAdrenalineMessage(AdrenalineMessagePacket packet)
         {
-            // Brug det Capi-felt, vi gemte i StartClientSide.
             if (this.capi != null)
             {
-                // Nu virker kaldet, fordi det udføres på klienten!
                 this.capi.TriggerIngameError(this, packet.Code, packet.Message);
 
-                // Valgfri: Log succes til client-main.log
                 this.capi.Logger.Notification($"[SleepNeed: Adrenaline-SUCCESS] HUD message displayed: {packet.Code}");
             }
         }
@@ -752,26 +720,17 @@ namespace SleepNeed.Systems
 
         public ICoreServerAPI sapi { get; private set; }
 
-        // --- NYE FELTER til GroundBed placering ---
         private IClientNetworkChannel _groundBedChannelClient;
         private IServerNetworkChannel _groundBedChannelServer;
         private float _groundBedPlacementTimer = 0f;
         private BlockSelection _lastTargetedBlock = null;
         private long _groundBedTickListenerId;
-        // ------------------------------------------
-        // --- NYE FELTER til "Perish"-logik ---
         private long _serverSleepCheckListenerId;
-        // Gemmer sengens position via spillerens unikke UID
         private Dictionary<string, BlockPos> _temporaryBedsByPlayerUID = new Dictionary<string, BlockPos>();
-        // Gemmer spillerens sove-status fra forrige tick
         private Dictionary<string, bool> _playerWasSleeping = new Dictionary<string, bool>();
-        // -------------------------------------
-        // --- NYE FELTER til synkronisering af 'IsBuildingGroundBed' ---
         private IClientNetworkChannel _groundBedBuildStateChannelClient;
         private IServerNetworkChannel _groundBedBuildStateChannelServer;
-        // Vi gemmer den seneste status for at undgå at spamme serveren med pakker
         private bool _wasBuildingGroundBedLastTick = false;
-        // ---
     }
 
     [ProtoContract]
@@ -788,14 +747,14 @@ namespace SleepNeed.Systems
     public class PlaceGroundBedPacket
     {
         [ProtoMember(1)]
-        public BlockPos Position { get; set; } // Positionen af blokken, der sigtes på
+        public BlockPos Position { get; set; } 
 
         [ProtoMember(2)]
-        public int FaceIndex { get; set; } // Siden af blokken, der sigtes på
+        public int FaceIndex { get; set; } 
     }
 
     [ProtoContract]
-    public class BuildingGroundBedPacket // Used to check if building the groundbed is true, to enable the harmony patch for disable block breaking if sitting is turned off in config.
+    public class BuildingGroundBedPacket 
     {
         [ProtoMember(1)]
         public bool IsBuildingGroundBed { get; set; }
@@ -842,10 +801,8 @@ namespace SleepNeed.Systems
                 {
                     try
                     {
-                        // We reuse ConfigServerName here because it points to "SleepNeed/sleepneed.json"
                         var tempServerConfig = ModConfig.ReadConfig<ConfigServer>(api, BtConstants.ConfigServerName);
 
-                        // If the file exists, use it immediately
                         if (tempServerConfig != null)
                         {
                             ConfigSystem.SyncedConfig = tempServerConfig.ToSyncedConfig();
@@ -856,18 +813,15 @@ namespace SleepNeed.Systems
                     }
                     catch (Exception)
                     {
-                        // If reading fails, fall through to default
                         BtCore.Logger.Warning("SleepNeed: Singleplayer client failed to read server config from disk. Using defaults temporarily.");
                     }
                 }
 
-                // 4. Multiplayer Fallback (or if file read failed)
-                // We create a default config and wait for the server packet
                 ConfigSystem.ConfigLoaded = false;
                 ConfigSystem.SyncedConfig = new SyncedConfig();
             }
             
-            // ConfigSystem.SyncedConfig = ConfigSystem.ConfigServer.ToSyncedConfig();
+            
         }
 
         public static void StartClientSide(ICoreClientAPI api)
@@ -895,7 +849,6 @@ namespace SleepNeed.Systems
             {
                 return;
             }
-            // Send SyncedConfig fra hukommelsen (ingen fil læsning)
             clientChannel.SendPacket<SyncedConfig>(ConfigSystem.SyncedConfig);
         }
 
@@ -1089,7 +1042,7 @@ namespace SleepNeed.Systems
             HarmonyPatches.HarmonyInstance.Patch(typeof(CharacterExtraDialogs).GetMethod("UpdateStats", BindingFlags.Instance | BindingFlags.NonPublic), null, typeof(CharacterExtraDialogs_UpdateStats_Patch).GetMethod("Postfix"), null, null);
             HarmonyPatches.HarmonyInstance.Patch(typeof(CharacterExtraDialogs).GetMethod("UpdateStats", BindingFlags.Instance | BindingFlags.NonPublic), null, typeof(CharacterExtraDialogs_UpdateStatBars_Patch).GetMethod("Postfix"), null, null);
 
-            // SleepNeed.HarmonyPatches.MiningWhenSittingPatch: Patch for at stoppe mining, når man sidder (patcher OnGettingBroken)
+            // SleepNeed.HarmonyPatches.MiningWhenSittingPatch: Patch to prevent block breaking when sitting
             MethodInfo targetOnGettingBroken = AccessTools.Method(typeof(Block), "OnGettingBroken");
             if (targetOnGettingBroken == null)
             {
@@ -1118,6 +1071,9 @@ namespace SleepNeed.Systems
                   transpiler: new HarmonyMethod(typeof(EnergyJumpFactorPatch), nameof(EnergyJumpFactorPatch.JumpFactorTranspilerMethod))
             );
 
+            // BreathePatches (Abyssal Depths Compatibility)
+            api.Logger.Notification("SleepNeed: Applying BreathePatches for MaxOxygen compatibility with other mods.");
+            HarmonyPatches.HarmonyInstance.CreateClassProcessor(typeof(BreathePatches)).Patch();
 
             // SleepNeed.HarmonyPatches.SaturationSlowTickPatch: Patch to avoid damage from hunger
             HarmonyPatches.HarmonyInstance.Patch

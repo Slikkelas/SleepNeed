@@ -15,11 +15,9 @@ using Vintagestory.GameContent;
 
 namespace SleepNeed.HarmonyPatches.EnergyJumpFactorPatch
 {
-    public static class EnergyJumpFactorPatch // Make it static
+    public static class EnergyJumpFactorPatch 
     {
-        // --- Helper Method to Calculate energyJumpFactor ---
-        // This method will be called by the patched IL.
-        // It takes the EntityPlayer instance to calculate the custom jump factor.
+        
         public static float GetEnergyJumpFactor(EntityPlayer player)
         {
 
@@ -50,10 +48,10 @@ namespace SleepNeed.HarmonyPatches.EnergyJumpFactorPatch
         {
             List<CodeInstruction> codes = new List<CodeInstruction>(instructions);
 
-            // --- Identify Local Variable Index ---
+            // Identifying Local Variable Index
             const int entityPlayerLocalIndex = 8; // Corrected index
 
-            // --- Find the 'ldsfld GlobalConstants.BaseJumpForce' instruction ---
+            // Finding the 'ldsfld GlobalConstants.BaseJumpForce' instruction
             int targetInstructionIndex = -1;
             for (int i = 0; i < codes.Count; i++)
             {
@@ -69,26 +67,26 @@ namespace SleepNeed.HarmonyPatches.EnergyJumpFactorPatch
 
             if (targetInstructionIndex != -1)
             {
-                // Create the new sequence of instructions to replace the original Ldsfld
+                // Creating the new sequence of instructions to replace the original Ldsfld
                 List<CodeInstruction> replacementInstructions = new List<CodeInstruction>();
 
-                // 1. Load the original GlobalConstants.BaseJumpForce value onto the stack.
+                // Loading the original GlobalConstants.BaseJumpForce value onto the stack.
                 replacementInstructions.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(GlobalConstants), nameof(GlobalConstants.BaseJumpForce))));
                 // Stack: [BaseJumpForce (float)]
 
-                // 2. Load the entityPlayer instance onto the stack.
+                // Loading the entityPlayer instance onto the stack.
                 replacementInstructions.Add(new CodeInstruction(OpCodes.Ldloc_S, entityPlayerLocalIndex));
                 // Stack: [BaseJumpForce (float)], [entityPlayer (ref)]
 
-                // 3. Call our helper method to get the energyJumpFactor (returns float).
+                // Calling helper method to get the energyJumpFactor (returns float).
                 replacementInstructions.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(EnergyJumpFactorPatch), nameof(GetEnergyJumpFactor))));
                 // Stack: [BaseJumpForce (float)], [energyJumpFactor (float)]
 
-                // 4. Add the energyJumpFactor to BaseJumpForce.
+                // Adding the energyJumpFactor to BaseJumpForce.
                 replacementInstructions.Add(new CodeInstruction(OpCodes.Sub));
                 // Stack: [(BaseJumpForce - energyJumpFactor) (float)]
 
-                // Now, replace the single original Ldsfld instruction with our new sequence.
+                // Replacing the single original Ldsfld instruction with our new sequence.
                 codes.RemoveAt(targetInstructionIndex);
                 codes.InsertRange(targetInstructionIndex, replacementInstructions);
             }

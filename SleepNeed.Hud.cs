@@ -139,12 +139,10 @@ namespace SleepNeed.Hud
         
         private void RecomposeOverlays()
         {
-            // Beregn størrelser på hovedtråden, hvor det er sikkert
             this.Bounds.CalcWorldBounds();
             int surfWidth = this.ValueWidth;
             int surfHeight = this.ValueHeight;
 
-            // Vi gemmer disse doubles i lokale variabler, så de er "låst" til denne task
             double innerW = this.Bounds.InnerWidth;
             double innerH = this.Bounds.InnerHeight;
             double outerW = this.Bounds.OuterWidth;

@@ -11,16 +11,18 @@ namespace SleepNeed.HarmonyPatches.MiningWhenSittingPatch
     [HarmonyPatch(typeof(Block), "OnGettingBroken")]
     public class StopMiningWhileSittingPatch
     {
-        /// <summary>
-        /// Kører FØR Block.OnGettingBroken.
-        /// Forhindrer metoden i at køre (og dermed stoppe mining), hvis spilleren sidder.
-        /// </summary>
-        /// <returns>
-        /// 'false' (spring original metode over) hvis spilleren sidder.
-        /// 'true' (kør original metode) hvis spilleren står op.
-        /// </returns>
+        
+        // Kører FØR Block.OnGettingBroken.
+        // Forhindrer metoden i at køre (og dermed stoppe mining), hvis spilleren sidder.
+        // 'false' (spring original metode over) hvis spilleren sidder.
+        // 'true' (kør original metode) hvis spilleren står op.
+        
         public static bool Prefix(ref float __result, IPlayer player, float remainingResistance)
         {
+            if (player?.Entity == null)
+            {
+                return true;
+            }
             bool playerIsBuildingGroundBed = false;
             bool playerIsBuildingStatus = false;
             ITreeAttribute energyTree = player.Entity.WatchedAttributes.GetTreeAttribute("sleepneed:energy");
@@ -58,22 +60,23 @@ namespace SleepNeed.HarmonyPatches.MiningWhenSittingPatch
             }
 
 
-            if (player?.Entity != null && (disableBlockBreakeWhenSitting || playerIsBuildingGroundBed))
+            if (disableBlockBreakeWhenSitting || playerIsBuildingGroundBed)
             {
-                // Tjek om spilleren eksisterer og sidder på gulvet
-                if (player?.Entity != null && player.Entity.Controls.FloorSitting)
+                EntityAgent agent = player.Entity as EntityAgent;
+                // Tjekker om spilleren eksisterer og sidder på gulvet
+                if (agent != null && agent.Controls != null && agent.Controls.FloorSitting)
                 {
-                    // 1. Sæt resultatet til den nuværende resistance (så den ikke ændres)
-                    //    Dette forhindrer, at modstand falder til 0.
+                    // Sætter resultatet til den nuværende resistance (så den ikke ændres)
+                    // Dette forhindrer, at modstand falder til 0.
                     __result = remainingResistance;
 
-                    // 2. Returner 'false' for at springe den originale OnGettingBroken-metode HELT over.
-                    //    Der sker ingen mining-fremgang.
+                    // Returnerer 'false' for at springe den originale OnGettingBroken-metode HELT over.
+                    // Der sker ingen mining-fremgang.
                     return false;
                 }
             }
-            // 3. Returner 'true' for at lade den originale metode køre normalt.
-            //    Spilleren står op, så mining er tilladt.
+            // Returner 'true' for at lade den originale metode køre normalt.
+            // Spilleren står op, så mining er tilladt.
             return true;
         }
     }

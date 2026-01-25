@@ -168,7 +168,7 @@ namespace SleepNeed.Sleepiness
                 this.CurrentSleepinessLevel = typeAttributes["currentsleepinesslevel"].AsFloat(0f);
                 this.SleepinessCapacityModifier = typeAttributes["sleepinesscapacitymodifier"].AsFloat(1f);
             }
-            // If a listener already exists (from a previous Initialize), stop it first.
+            
             if (this._sleepinesslistenerId != 0)
             {
                 this.entity.World.UnregisterGameTickListener(this._sleepinesslistenerId);
@@ -200,6 +200,14 @@ namespace SleepNeed.Sleepiness
                 if (this.HasRevivedSleepiness)
                 {
                     this.CurrentSleepinessLevel = this.EffectiveSleepinessCapacity * ConfigSystem.SyncedConfig.SleepinessAfterRevival;
+                    if (this.entity != null && !ConfigSystem.SyncedConfig.EnableEnergy)
+                    {
+                        EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                        if (tirednessBehavior != null)
+                        {
+                            tirednessBehavior.Tiredness = ConfigSystem.SyncedConfig.TirednessAfterRevival;
+                        }
+                    }
                 }
             } 
         }
@@ -212,6 +220,14 @@ namespace SleepNeed.Sleepiness
             }
             else if (ConfigSystem.SyncedConfig.EnableSleepiness)
             {
+                if (this.entity != null && ConfigSystem.SyncedConfig.DisableTiredness && !ConfigSystem.SyncedConfig.EnableEnergy)
+                {
+                    EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
+                    if (tirednessBehavior != null)
+                    {
+                        tirednessBehavior.Tiredness = 10f;
+                    }
+                }
                 EntityPlayer player = this.entity as EntityPlayer;
                 this.RefreshedThreshold = ConfigSystem.SyncedConfig.FeelingRefreshedHours / this.EffectiveSleepinessCapacity;
                 this.OverloadThreshold = 1f - (this.SleepinessCapacityOverload / this.EffectiveSleepinessCapacity);
@@ -234,7 +250,6 @@ namespace SleepNeed.Sleepiness
                     this._wakeDelayTimer += dt;
                     if (this._wakeDelayTimer < WakeDelaySeconds)
                     {
-                        // Skip the "awake" logic during the delay
                         this._hoursTotal = this.entity.World.Calendar.TotalHours;
                         return;
                     }
@@ -247,7 +262,7 @@ namespace SleepNeed.Sleepiness
                             EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
                             if (tirednessBehavior != null)
                             {
-                                tirednessBehavior.Tiredness = 5f;
+                                tirednessBehavior.Tiredness = ConfigSystem.SyncedConfig.TirednessAfterSleep;
                             }
                         }
                     }
@@ -497,13 +512,14 @@ namespace SleepNeed.Sleepiness
                 if (this.entity != null)
                 {
                     EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
-                    if (damageSource.Type == EnumDamageType.Heal && tirednessBehavior != null)
+                    if ((damageSource.Type == EnumDamageType.Heal && damageSource.Source == EnumDamageSource.Block) && tirednessBehavior != null)
                     {
                         tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
-                        if (ConfigSystem.SyncedConfig.GainSleepinessWhenHealing)
-                        {
-                            this.CurrentSleepinessLevel += (damage / 2f) * ConfigSystem.SyncedConfig.GainSleepinessWhenHealingModifier; // Add config to let the player choose the sleepiness gain rate.
-                        }
+                    }
+                    else if (damageSource.Type == EnumDamageType.Heal && ConfigSystem.SyncedConfig.GainSleepinessWhenHealing)
+                    {
+                        this.CurrentSleepinessLevel += (damage / 2f) * ConfigSystem.SyncedConfig.GainSleepinessWhenHealingModifier; 
+                        tirednessBehavior.Tiredness = Math.Max(0f, tirednessBehavior.Tiredness + damage);
                     }
                 }
             }
@@ -552,7 +568,7 @@ namespace SleepNeed.Sleepiness
         private bool _justWokeUp = false;
         private float _wakeDelayTimer = 0f;
         private float _statsDelayTimer = 0f;
-        private float WakeDelaySeconds { get; } = ConfigSystem.SyncedConfig.DelaySeconds; // Set your desired delay in seconds
+        private float WakeDelaySeconds { get; } = ConfigSystem.SyncedConfig.DelaySeconds; 
 
         private long _sleepinesslistenerId;
 

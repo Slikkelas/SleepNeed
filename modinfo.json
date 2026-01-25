@@ -6,7 +6,7 @@
         "Slikkelas"
     ],
     "description": "Gives the player a need for sleep by adding an energy and sleepiness mechanic",
-    "version": "3.0.2",
+    "version": "3.1.1",
     "dependencies": {
         "game": "1.21.0"
     }
