@@ -220,7 +220,7 @@ namespace SleepNeed.Sleepiness
             }
             else if (ConfigSystem.SyncedConfig.EnableSleepiness)
             {
-                if (this.entity != null && ConfigSystem.SyncedConfig.DisableTiredness && !ConfigSystem.SyncedConfig.EnableEnergy)
+                if (this.entity != null && ConfigSystem.SyncedConfig.IndefiniteSleepDuration && !ConfigSystem.SyncedConfig.EnableEnergy)
                 {
                     EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
                     if (tirednessBehavior != null)
@@ -263,6 +263,21 @@ namespace SleepNeed.Sleepiness
                             if (tirednessBehavior != null)
                             {
                                 tirednessBehavior.Tiredness = ConfigSystem.SyncedConfig.TirednessAfterSleep;
+                            }
+
+                            if (this.entity.World.Rand.NextDouble() < ConfigSystem.SyncedConfig.LuckySleepChance) // 0.001 = 0.1% probability
+                            {
+                                this.CurrentSleepinessLevel = 0f;
+
+                                if (ConfigSystem.SyncedConfig.EnableEnergy)
+                                {
+                                    var energyBehavior = this.entity.GetBehavior<SleepNeed.Energy.EntityBehaviorEnergy>();
+                                    if (energyBehavior != null)
+                                    {
+                                        energyBehavior.CurrentEnergy = energyBehavior.MaxEnergy;
+                                        energyBehavior.Invigorated = ConfigSystem.SyncedConfig.MaxEnergy;
+                                    }
+                                }
                             }
                         }
                     }
@@ -384,7 +399,7 @@ namespace SleepNeed.Sleepiness
                                 {
                                     float baseEnergyRate = 1.0f;
                                     float reductionFactor = (1f - Math.Clamp(this.SleepinessRatio / this.RefreshedThreshold, 0.0f, 1.0f));
-                                    this.entity.Stats.Set(BtCore.Modid + ":energyrate", "sleepinessfull", -baseEnergyRate * reductionFactor, false);
+                                    this.entity.Stats.Set(BtCore.Modid + ":energyrate", "sleepinessfull", Math.Clamp(-baseEnergyRate * reductionFactor, -1.0f, 0.0f), false);
                                 }
                             }
                             this._sleepinessStatsRemove = false;

@@ -1,0 +1,13 @@
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\bin\Debug\Mods\mod\modinfo.json
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\bin\Debug\Mods\mod\SleepNeed.deps.json
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\bin\Debug\Mods\mod\SleepNeed.dll
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\bin\Debug\Mods\mod\SleepNeed.pdb
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.csproj.AssemblyReference.cache
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.AssemblyInfoInputs.cache
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.AssemblyInfo.cs
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.csproj.CoreCompileInputs.cache
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.dll
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\refint\SleepNeed.dll
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\SleepNeed.pdb
+C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\obj\Debug\ref\SleepNeed.dll

@@ -69,18 +69,34 @@ namespace SleepNeed.Systems
         {
             try
             {
-                ConfigSystem.ConfigServer = ModConfig.ReadConfig<ConfigServer>(api, BtConstants.ConfigServerName);
+                var diffConfig = ModConfig.ReadConfig<ConfigDifficulty>(api, "sleepneed_difficulty.json");
+                var easyConfig = ModConfig.ReadConfig<ConfigServerEasy>(api, "sleepneed_easy.json");
+                var normalConfig = ModConfig.ReadConfig<ConfigServerNormal>(api, "sleepneed_normal.json");
+                var hardConfig = ModConfig.ReadConfig<ConfigServerHard>(api, "sleepneed_hard.json");
+                if (diffConfig.DifficultyMode.ToLower() == "easy")
+                {
+                    ConfigSystem.ConfigServer = easyConfig;
+                    BtCore.Logger.Notification("SleepNeed: Reloaded Easy Mode Config.");
+                }
+                else if (diffConfig.DifficultyMode.ToLower() == "hard")
+                {
+                    ConfigSystem.ConfigServer = hardConfig;
+                    BtCore.Logger.Notification("SleepNeed: Reloaded Hard Mode Config.");
+                }
+                else
+                {
+                    ConfigSystem.ConfigServer = normalConfig;
+                    BtCore.Logger.Notification("SleepNeed: Reloaded Normal Mode Config.");
+                }
                 ConfigSystem.SyncedConfig = ConfigSystem.ConfigServer.ToSyncedConfig();
                 ConfigSystem.ConfigLoaded = true;
 
                 // This triggers the event bus, which updates behaviors AND sends the network packet to clients
                 api.Event.PushEvent(EventIds.ConfigReloaded, null);
-
-                BtCore.Logger.Notification("SleepNeed: Config automatically reloaded and synchronized on player join.");
             }
             catch (Exception e)
             {
-                BtCore.Logger.Error($"SleepNeed: Failed to auto-reload config. {e.Message}");
+                BtCore.Logger.Error($"SleepNeed: Failed to auto-reload config on player joining. {e.Message}");
             }
         }
 
@@ -783,7 +799,26 @@ namespace SleepNeed.Systems
             ConfigSystem._api = api;
             if (api.Side == EnumAppSide.Server)
             {
-                ConfigSystem.ConfigServer = ModConfig.ReadConfig<ConfigServer>(api, BtConstants.ConfigServerName);
+                var diffConfig = ModConfig.ReadConfig<ConfigDifficulty>(api, "sleepneed_difficulty.json");
+                var easyConfig = ModConfig.ReadConfig<ConfigServerEasy>(api, "sleepneed_easy.json");
+                var normalConfig = ModConfig.ReadConfig<ConfigServerNormal>(api, "sleepneed_normal.json");
+                var hardConfig = ModConfig.ReadConfig<ConfigServerHard>(api, "sleepneed_hard.json");
+                if (diffConfig.DifficultyMode.ToLower() == "easy")
+                {
+                    ConfigSystem.ConfigServer = easyConfig;
+                    BtCore.Logger.Notification("SleepNeed: Loaded Easy Mode Config.");
+                }
+                else if (diffConfig.DifficultyMode.ToLower() == "hard")
+                {
+                    ConfigSystem.ConfigServer = hardConfig;
+                    BtCore.Logger.Notification("SleepNeed: Loaded Hard Mode Config.");
+                }
+                else
+                {
+                    ConfigSystem.ConfigServer = normalConfig;
+                    BtCore.Logger.Notification("SleepNeed: Loaded Normal Mode Config.");
+                }
+                
                 ConfigSystem.SyncedConfig = ConfigSystem.ConfigServer.ToSyncedConfig();
                 ConfigSystem.ConfigLoaded = true;
                 return;
@@ -801,13 +836,31 @@ namespace SleepNeed.Systems
                 {
                     try
                     {
-                        var tempServerConfig = ModConfig.ReadConfig<ConfigServer>(api, BtConstants.ConfigServerName);
+                        var diffConfig = ModConfig.ReadConfig<ConfigDifficulty>(api, "sleepneed_difficulty.json");
+                        var easyConfig = ModConfig.ReadConfig<ConfigServerEasy>(api, "sleepneed_easy.json");
+                        var normalConfig = ModConfig.ReadConfig<ConfigServerNormal>(api, "sleepneed_normal.json");
+                        var hardConfig = ModConfig.ReadConfig<ConfigServerHard>(api, "sleepneed_hard.json");
+                        ConfigServer tempServerConfig;
+                        switch (diffConfig.DifficultyMode.ToLower().Trim())
+                        {
+                            case "easy":
+                                tempServerConfig = easyConfig;
+                                break;
+                            case "hard":
+                                tempServerConfig = hardConfig;
+                                break;
+                            case "normal":
+                            default:
+                                // Default to normal if the text is missing, misspelled, or exactly "normal"
+                                tempServerConfig = normalConfig;
+                                break;
+                        }
 
                         if (tempServerConfig != null)
                         {
                             ConfigSystem.SyncedConfig = tempServerConfig.ToSyncedConfig();
                             ConfigSystem.ConfigLoaded = true;
-                            BtCore.Logger.Notification("SleepNeed: Singleplayer client loaded server config from disk.");
+                            BtCore.Logger.Notification($"SleepNeed: Singleplayer client loaded '{diffConfig.DifficultyMode}' server config from disk.");
                             return;
                         }
                     }
@@ -988,10 +1041,6 @@ namespace SleepNeed.Systems
 
         private static void SendSyncedConfig(IServerPlayer byplayer)
         {
-            BtCore.Logger.Warning("SleepNeed: Sending config to player: {0}", new object[]
-            {
-                byplayer.PlayerName
-            });
             IServerNetworkChannel serverChannel = ConfigSystem._serverChannel;
             if (serverChannel == null)
             {

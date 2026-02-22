@@ -1,0 +1,65 @@
+[
+  {
+    "file": "game:blocktypes/soil/soil.json",
+    "op": "add",
+    "path": "/behaviors/-",
+    "value": { "code": "BehaviorBuildGroundBed" },
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/forestfloor.json",
+    "op": "add",
+    "path": "/behaviors/-",
+    "value": { "code": "BehaviorBuildGroundBed" },
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/cob.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/farmland.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/mudbrick.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/flooring/packeddirt.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/rammed.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/flooring/drypackeddirt.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  },
+  {
+    "file": "game:blocktypes/soil/flooring/strawbedding.json",
+    "op": "add",
+    "path": "/behaviors",
+    "value": [ { "code": "BehaviorBuildGroundBed" } ],
+    "side": "Server"
+  }
+]

@@ -344,6 +344,11 @@ namespace SleepNeed.Energy
             this.PreviousEnergyAmount = -999;
             this._hoursTotal = this.entity.World.Calendar.TotalHours;
             this._hoursPerDay = this.entity.World.Calendar.HoursPerDay;
+            EntityBehaviorHunger nutrition = this.entity.GetBehavior<EntityBehaviorHunger>();
+            if (nutrition != null)
+            {
+                this._previousFruitLevel = nutrition.FruitLevel;
+            }
         }
 
         
@@ -413,7 +418,7 @@ namespace SleepNeed.Energy
                     {
                         try
                         {
-                            // Check if the hotbar slot has a valid item before getting the tool type
+                            // Checking if the hotbar slot has a valid item before getting the tool type
                             if (invMan.ActiveHotbarSlot.Itemstack != null)
                             {
                                 EnumTool? activeTool = invMan.ActiveTool;
@@ -694,11 +699,11 @@ namespace SleepNeed.Energy
                         this.EnergyLossDelay -= 10f * satLossMultiplier;
                         flag = true;
                     }
-                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel > 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusWelness && !relaxingStatusBoilingWelness)
+                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel < 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusWelness && !relaxingStatusBoilingWelness)
                     {
                         this.Invigorated = Math.Max(0f, this.Invigorated + (((satLossMultiplier * ((this.SleepRatio * this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier) * ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier));
                     }
-                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel > 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusBoilingWelness)
+                    else if (this.CurrentEnergy > 0.5f * ConfigSystem.SyncedConfig.MaxEnergy && this.CurrentEnergy < 0.75f * ConfigSystem.SyncedConfig.MaxEnergy && sleepiness.CurrentSleepinessLevel < 0.5f * ConfigSystem.SyncedConfig.MaxSleepiness && !sleepiness.IsOverloadedForEnergy && !this.Starving && relaxingStatusBoilingWelness)
                     {
                         this.Invigorated = Math.Max(0f, this.Invigorated + (((satLossMultiplier * ((this.SleepRatio * this.OverallHealthRatio) * this.EnergyRatio)) * ConfigSystem.SyncedConfig.SittingRelaxingSpeedModifier) * (ConfigSystem.SyncedConfig.WaterSpaRelaxingSpeedModifier * 1.5f)));
                     }
@@ -1079,36 +1084,37 @@ namespace SleepNeed.Energy
                 {
                     return;
                 }
-
+                float upperRatio = ConfigSystem.SyncedConfig.UpperRatio;
+                float lowerRatio = ConfigSystem.SyncedConfig.LowerRatio;
                 var sleepiness = entity.GetBehavior<SleepNeed.Sleepiness.EntityBehaviorSleepiness>();
                 if (ConfigSystem.SyncedConfig.HungerLevelMatters)
                 {
                     if (ConfigSystem.SyncedConfig.EnableSleepiness && sleepiness != null)
                     {
-                        if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || sleepiness.IsSleepingNow)
+                        if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || sleepiness.IsSleepingNow)
                         {
                             this.entity.Stats.Remove("hungerrate", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.SyncedConfig.HungerRateReductionFromHighEnergy * ((1f - 2f * (this.EnergyRatioHighEnergy))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.SyncedConfig.HungerRateGainFromLowEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy))), false);
                         }
                     }
                     else
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("hungerrate", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.SyncedConfig.HungerRateReductionFromHighEnergy * ((1f - 2f * (this.EnergyRatioHighEnergy))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("hungerrate", "fatigue", ConfigSystem.SyncedConfig.HungerRateGainFromLowEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy))), false);
                         }
@@ -1149,41 +1155,41 @@ namespace SleepNeed.Energy
                     bool notRefreshed = sleepiness.SleepinessRatio >= sleepiness.RefreshedThreshold;
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedToolMiningSpeed)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("miningSpeedMul", "fatigue", ((ConfigSystem.SyncedConfig.ToolMiningSpeedBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("miningSpeedMul", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("miningSpeedMul", "fatigue", (ConfigSystem.SyncedConfig.ToolMiningSpeedBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("miningSpeedMul", "fatigue", (ConfigSystem.SyncedConfig.ToolMiningSpeedDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedJumpHeight)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.EnergyJumpBoostStat = 0f;
                             this.entity.Stats.Set("jumpHeightMul", "fatigue", ((ConfigSystem.SyncedConfig.JumpHeightBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("jumpHeightMul", "fatigue");
                             this.EnergyJumpBoostStat = 0f;
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.EnergyJumpBoostStat = 0f;
                             this.entity.Stats.Set("jumpHeightMul", "fatigue", (ConfigSystem.SyncedConfig.JumpHeightBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false); // this.EnergyRatioHighEnergy = Math.Clamp(0.5f * (this.CurrentEnergy - (0.7f * this.MaxEnergy)) / (0.3f * this.MaxEnergy) + 0.5f, 0.5f, 1f);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Remove("jumpHeightMul", "fatigue");
                             this.EnergyJumpBoostStat = (ConfigSystem.SyncedConfig.JumpHeightDebuffFromEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy)))); // this.EnergyRatioLowEnergy = Math.Clamp((0.5f / (0.3f * this.MaxEnergy)) * this.CurrentEnergy, 0f, 0.5f);
@@ -1192,19 +1198,19 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedWalkSpeed)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("walkspeed", "fatigue", ((ConfigSystem.SyncedConfig.WalkSpeedBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("walkspeed", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("walkspeed", "fatigue", (ConfigSystem.SyncedConfig.WalkSpeedBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("walkspeed", "fatigue", (ConfigSystem.SyncedConfig.WalkSpeedDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1213,19 +1219,19 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedRangedWeaponSpeed)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsSpeed", "fatigue", ((ConfigSystem.SyncedConfig.RangedWeaponSpeedBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("rangedWeaponsSpeed", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsSpeed", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponSpeedBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsSpeed", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponSpeedDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1234,19 +1240,19 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedRangedWeaponDamage)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsDamage", "fatigue", ((ConfigSystem.SyncedConfig.RangedWeaponDamageBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("rangedWeaponsDamage", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponDamageBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponDamageDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1255,76 +1261,76 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedMeleeWeaponDamage)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("meleeWeaponsDamage", "fatigue", ((ConfigSystem.SyncedConfig.MeleeWeaponDamageBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("meleeWeaponsDamage", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("meleeWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.MeleeWeaponDamageBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("meleeWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.MeleeWeaponDamageDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedArmorWalkSpeedAffectedness)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("armorWalkSpeedAffectedness", "fatigue", ((ConfigSystem.SyncedConfig.ArmorWalkSpeedAffectednessBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("armorWalkSpeedAffectedness", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("armorWalkSpeedAffectedness", "fatigue", (ConfigSystem.SyncedConfig.ArmorWalkSpeedAffectednessBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("armorWalkSpeedAffectedness", "fatigue", (ConfigSystem.SyncedConfig.ArmorWalkSpeedAffectednessDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedBowDrawingStrength)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("bowDrawingStrength", "fatigue", ((ConfigSystem.SyncedConfig.BowDrawingStrengthBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("bowDrawingStrength", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("bowDrawingStrength", "fatigue", (ConfigSystem.SyncedConfig.BowDrawingStrengthBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("bowDrawingStrength", "fatigue", (ConfigSystem.SyncedConfig.BowDrawingStrengthDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedAnimalHarvestingTime)
                     {
-                        if (isRefreshed && this.EnergyRatio >= 0.7f)
+                        if (isRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("animalHarvestingTime", "fatigue", ((ConfigSystem.SyncedConfig.AnimalHarvestingTimeBoostFromEnergy * ConfigSystem.SyncedConfig.RefreshedEnergyBoostMultiplier) * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if ((this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > 0.3f))
+                        else if ((this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio) || (sleepiness.IsOverloadedForEnergy && this.EnergyRatio > lowerRatio))
                         {
                             this.entity.Stats.Remove("animalHarvestingTime", "fatigue");
                         }
-                        else if (notRefreshed && this.EnergyRatio >= 0.7f)
+                        else if (notRefreshed && this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("animalHarvestingTime", "fatigue", (ConfigSystem.SyncedConfig.AnimalHarvestingTimeBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("animalHarvestingTime", "fatigue", (ConfigSystem.SyncedConfig.AnimalHarvestingTimeDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1338,15 +1344,15 @@ namespace SleepNeed.Energy
 
 
 
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("miningSpeedMul", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("miningSpeedMul", "fatigue", (ConfigSystem.SyncedConfig.ToolMiningSpeedBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("miningSpeedMul", "fatigue", (ConfigSystem.SyncedConfig.ToolMiningSpeedDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1355,15 +1361,15 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedJumpHeight)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("jumpHeightMul", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("jumpHeightMul", "fatigue", (ConfigSystem.SyncedConfig.JumpHeightBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.EnergyJumpBoostStat = (ConfigSystem.SyncedConfig.JumpHeightDebuffFromEnergy * ((1f - 2f * (this.EnergyRatioLowEnergy))));
                         }
@@ -1371,15 +1377,15 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedWalkSpeed)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("walkspeed", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("walkspeed", "fatigue", (ConfigSystem.SyncedConfig.WalkSpeedBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("walkspeed", "fatigue", (ConfigSystem.SyncedConfig.WalkSpeedDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1388,15 +1394,15 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedRangedWeaponSpeed)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("rangedWeaponsSpeed", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsSpeed", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponSpeedBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsSpeed", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponSpeedDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1405,15 +1411,15 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedRangedWeaponDamage)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("rangedWeaponsDamage", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponDamageBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("rangedWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.RangedWeaponDamageDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1422,60 +1428,60 @@ namespace SleepNeed.Energy
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedMeleeWeaponDamage)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("meleeWeaponsDamage", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("meleeWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.MeleeWeaponDamageBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("meleeWeaponsDamage", "fatigue", (ConfigSystem.SyncedConfig.MeleeWeaponDamageDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedArmorWalkSpeedAffectedness)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("armorWalkSpeedAffectedness", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("armorWalkSpeedAffectedness", "fatigue", (ConfigSystem.SyncedConfig.ArmorWalkSpeedAffectednessBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("armorWalkSpeedAffectedness", "fatigue", (ConfigSystem.SyncedConfig.ArmorWalkSpeedAffectednessDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedBowDrawingStrength)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("bowDrawingStrength", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("bowDrawingStrength", "fatigue", (ConfigSystem.SyncedConfig.BowDrawingStrengthBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("bowDrawingStrength", "fatigue", (ConfigSystem.SyncedConfig.BowDrawingStrengthDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
                     }
                     if (ConfigSystem.SyncedConfig.EnableEnergyDependedAnimalHarvestingTime)
                     {
-                        if (this.EnergyRatio > 0.3f && this.EnergyRatio < 0.7f)
+                        if (this.EnergyRatio > lowerRatio && this.EnergyRatio < upperRatio)
                         {
                             this.entity.Stats.Remove("animalHarvestingTime", "fatigue");
                         }
-                        else if (this.EnergyRatio >= 0.7f)
+                        else if (this.EnergyRatio >= upperRatio)
                         {
                             this.entity.Stats.Set("animalHarvestingTime", "fatigue", (ConfigSystem.SyncedConfig.AnimalHarvestingTimeBoostFromEnergy * ((1f - 2f * (1f - this.EnergyRatioHighEnergy)))), false);
                         }
-                        else if (this.EnergyRatio <= 0.3f)
+                        else if (this.EnergyRatio <= lowerRatio)
                         {
                             this.entity.Stats.Set("animalHarvestingTime", "fatigue", (ConfigSystem.SyncedConfig.AnimalHarvestingTimeDebuffFromEnergy * ((1f - 2f * (1f - this.EnergyRatioLowEnergy)))), false);
                         }
@@ -1588,7 +1594,29 @@ namespace SleepNeed.Energy
             }
             else if (ConfigSystem.SyncedConfig.EnableEnergy)
             {
-                if (this.entity != null && ConfigSystem.SyncedConfig.DisableTiredness)
+                if (this.entity != null && ConfigSystem.SyncedConfig.FruitDelaysEnergyReduction)
+                {
+                    EntityBehaviorHunger nutrition = this.entity.GetBehavior<EntityBehaviorHunger>();
+                    if (nutrition != null)
+                    {
+                        if (this._previousFruitLevel < 0f)
+                        {
+                            this._previousFruitLevel = nutrition.FruitLevel;
+                        }
+
+                        float fruitLevelChange = nutrition.FruitLevel - this._previousFruitLevel;
+
+                        if (fruitLevelChange > 0f)
+                        {
+                            float fruitDelayMultiplier = ConfigSystem.SyncedConfig.FruitDelayMultiplier;
+                            this.EnergyLossDelay += (fruitLevelChange * fruitDelayMultiplier);
+                        }
+
+                        this._previousFruitLevel = nutrition.FruitLevel;
+                    }
+                }
+                
+                if (this.entity != null && ConfigSystem.SyncedConfig.IndefiniteSleepDuration)
                 {
                     EntityBehaviorTiredness tirednessBehavior = this.entity.GetBehavior<EntityBehaviorTiredness>();
                     if (tirednessBehavior != null)
@@ -1621,6 +1649,12 @@ namespace SleepNeed.Energy
                             if (tirednessBehavior != null)
                             {
                                 tirednessBehavior.Tiredness = ConfigSystem.SyncedConfig.TirednessAfterSleep;
+                            }
+
+                            if (this.entity.World.Rand.NextDouble() < ConfigSystem.SyncedConfig.LuckySleepChance) // 0.001 = 0.1% probability
+                            {
+                                this.CurrentEnergy = this.MaxEnergy;
+                                this.Invigorated = ConfigSystem.SyncedConfig.MaxEnergy;
                             }
                         }
                     }
@@ -1759,7 +1793,7 @@ namespace SleepNeed.Energy
                         this.TemperatureDifference = 0f;
 
                     }
-                    this.EnergyRateUpdate = (this.entity.World.Api.ModLoader.GetModSystem<RoomRegistry>(true).GetRoomForPosition(this.entity.Pos.AsBlockPos).ExitCount == 0) ? 0f : ((((ConfigSystem.SyncedConfig.EnergyRatePerDegrees / 100f) - 1f) * this.TemperatureDifference) * Math.Max(0.1f, (1f - this.OverallHealthRatio)));
+                    this.EnergyRateUpdate = (this.entity.World.Api.ModLoader.GetModSystem<RoomRegistry>(true).GetRoomForPosition(this.entity.Pos.AsBlockPos).ExitCount == 0) ? 0f : ((Math.Abs(((ConfigSystem.SyncedConfig.EnergyRatePerDegrees / 100f) - 1f)) * this.TemperatureDifference) * Math.Max(0.1f, (1f - this.OverallHealthRatio)));
 
 
 
@@ -2124,7 +2158,7 @@ namespace SleepNeed.Energy
 
         private long _energylistenerId;
 
-        
+        private float _previousFruitLevel = -1f;
 
         private ICoreAPI _api;
 

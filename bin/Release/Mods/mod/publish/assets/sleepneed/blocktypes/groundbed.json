@@ -1,0 +1,128 @@
+{
+  "code": "groundbed",
+  "class": "BlockGroundBed",
+  "entityClassByType": {
+    "*-head-*": "Bed"
+  },
+  "variantgroups": [
+    {
+      "code": "part",
+      "states": [ "head", "feet" ]
+    },
+    {
+      "code": "side",
+      "loadFromProperties": "abstract/horizontalorientation"
+    }
+  ],
+  "attributes": {
+    "sleepEfficiencyByType": {
+      "groundbed-*": 0.2083333333,
+      "*": 0.3333333333
+    },
+    "canBePickedUp": true,
+    "handbook": {
+      "groupBy": [ "groundbed-head-north" ]
+    }
+  },
+  "creativeinventory": {
+    "general": [ "groundbed-head-north" ],
+    "items": [ "groundbed-head-north" ],
+    "bed": [ "groundbed-head-north" ]
+  },
+  "shapeinventory": { "base": "game:block/basic/flat" },
+  "shapebytype": {
+    "*-head-north": { "base": "game:block/basic/flat" },
+    "*-head-east": { "base": "game:block/basic/flat" },
+    "*-head-south": { "base": "game:block/basic/flat" },
+    "*-head-west": { "base": "game:block/basic/flat" },
+    "*-feet-north": { "base": "game:block/basic/flat" },
+    "*-feet-east": { "base": "game:block/basic/flat" },
+    "*-feet-south": { "base": "game:block/basic/flat" },
+    "*-feet-west": { "base": "game:block/basic/flat" }
+  },
+  "textures": {
+    "all": { "base": "sleepneed:block/soil/groundbed" }
+  },
+  "blockmaterial": "Soil",
+  "drawtype": "JSON",
+  "lightAbsorption": 1,
+  "sidesolid": { "all": false },
+  "sideopaque": { "all": false },
+  "replaceable": 550,
+  "resistance": 2,
+  "maxStackSize": 2,
+  "materialDensity": 600, 
+
+  "collisionbox": null, 
+  "selectionbox": { 
+    "x1": 0,
+    "y1": 0,
+    "z1": 0,
+    "x2": 1,
+    "y2": 0.0625,
+    "z2": 1
+  },
+  "sounds": {
+    "place": "game:block/dirt",
+    "break": "game:block/dirt",
+    "hit": "game:block/dirt",
+    "walk": "walk/grass"
+  },
+  "drops": [
+    {
+      "type": "block",
+      "code": "groundbed-head-north"
+    }
+  ],
+  "guiTransform": {
+    "translation": {
+      "x": 0,
+      "y": 3,
+      "z": 0
+    },
+    "rotation": {
+      "x": -25,
+      "y": -129,
+      "z": 0
+    },
+    "origin": {
+      "x": 0.5,
+      "y": 0.1,
+      "z": 0.5
+    },
+    "scale": 0.8
+  },
+  "fpHandTransform": {
+    "translation": {
+      "x": 0,
+      "y": 0.4,
+      "z": 0.5
+    },
+    "rotation": {
+      "x": 4,
+      "y": 3,
+      "z": 1
+    }
+  },
+  "tpHandTransform": {
+    "translation": {
+      "x": -0.9,
+      "y": 0.2,
+      "z": -0.8
+    },
+    "rotation": {
+      "x": -8,
+      "y": 12,
+      "z": -74
+    },
+    "scale": 0.6
+  },
+  "groundTransform": {
+    "origin": {
+      "x": 0.5,
+      "y": 0,
+      "z": 0.5
+    },
+    "scale": 2
+  }
+}

@@ -65,7 +65,119 @@ namespace SleepNeed.Config
         }
     }
 
-    
+    public class ConfigDifficulty : IModConfig
+    {
+        public string Difficulty_Category { get; set; } = " ▁  ▂  ▃  ▄  ▅  ▆  ▇  █ - ⚙ -  DIFFICULTY  - ⚙ - █  ▇  ▆  ▅  ▄  ▃  ▂  ▁";
+        public string Difficulty_Description { get; set; } = "  DIFFICULTY MODE      🗘 (Normal)   -  Set to 'easy', 'normal' or 'hard'. Default is 'normal'.";
+        public string DifficultyMode { get; set; } = "normal";
+
+        public ConfigDifficulty(ICoreAPI api, ConfigDifficulty previousConfig = null)
+        {
+            if (previousConfig != null)
+            {
+                this.DifficultyMode = previousConfig.DifficultyMode;
+            }
+        }
+    }
+
+    public class ConfigServerEasy : ConfigServer
+    {
+        public ConfigServerEasy(ICoreAPI api, ConfigServerEasy previousConfig = null) : base(api, previousConfig)
+        {
+            if (previousConfig == null)
+            {
+                this.Max_Energy = "                                          MAX ENERGY                                                🗘 (1500)          -  Set the base max energy amount.";
+                this.MaxEnergy = 1500f;
+                this.Max_Sleepiness = "                                      MAX SLEEPINESS                                            🗘 (16)            -  What is the max amount of sleepiness, before being overloaded? This value should be seen as hours.";
+                this.MaxSleepiness = 16f;
+                this.Drain_Energy_When_Taking_Damage = "                     DAMAGE DRAINS                   -  MOD MECHANIC           🗘 (false)         -  Should the player lose energy in relation to the amount of damage taken?";
+                this.DrainEnergyWhenTakingDamage = false;
+                this.Gain_Sleepiness_When_Healing = "                        HEALING MAKES SLEEPY            -  MOD MECHANIC           🗘 (false)         -  Sleepiness increases when healing from all sources e.g. poultice. This is to simulate that when you are hurt and finally recovering, you get sleepy and need to rest. If you are using the mod SlowTox beware that when you drink alcohol you will get sleepy, due to the accumulated healing from intoxication.";
+                this.GainSleepinessWhenHealing = false;
+                this.Enable_Energy_Depended_Jump_Height = "                  JUMP HEIGHT                     -  MOD MECHANIC           🗘 (false)         -  Should energy have any impact on jump height?";
+                this.EnableEnergyDependedJumpHeight = false;
+                this.Hunger_Rate_Gain_From_Low_Energy = "                    HUNGER RATE HIGH                -  STAT CHANGE            🗘 (1.5)           -  The percentage by which the hunger rate is increased when energy is below 30%. This is gradual and the value is the final percentage when energy is 0%. (3.5 = 350% increase in hunger rate. This is added to the default 100% so 450% is the final value.)";
+                this.HungerRateGainFromLowEnergy = 1.5f;
+                this.Hunger_Energy_Rate_Debuff = "                           HUNGER DEBUFF                   -  STAT CHANGE            🗘 (500)           -  Maximum increase of energy rate caused by hunger. This value is the final energy rate when hunger reaches 0. (Set in percent; 1000 = 1000%)";
+                this.HungerEnergyrateDebuff = 500f;
+                this.Hunger_Energy_Rate_Debuff_Start_Ratio = "               HUNGER THRESHOLD                -  MOD MECHANIC           🗘 (0.15)          -  When should hunger affect energy rate? Default is 0.15 which means the debuff starts when satiety is at 15% and downwards to 0";
+                this.HungerEnergyrateDebuffStartRatio = 0.15f;
+                this.Sleepiness_Energy_Rate_Debuff = "                       SLEEPINESS DEBUFF               -  STAT CHANGE            🗘 (600)           -  When in an overloaded state of sleepiness, how much should the increase in energy rate be, when fully overloaded? (Set the final percentage; 600 = 600%) :: This is gradually increased from overload starts till it's full. See settings for sleepiness to get a hint on how overload is set.";
+                this.SleepinessEnergyrateDebuff = 600f;
+                this.Energy_Rate_Per_Degrees = "                             TEMPERATURE DEBUFF              -  STAT CHANGE            🗘 (50)            -  This is the increased energy rate pr. degree C when being cold. If body temp is above 37.8 C then this value is doubled. This is because body temp above normal is very serious in real life and is rare in the game to ever happen. (50 = 50% pr. degree)";
+                this.EnergyRatePerDegrees = 50f;
+                this.WalkSpeed_From_Energy = "                               WALK SPEED STATS                -  STAT CHANGE            🗘 (0.15)          -  How much should walkspeed be affected? (0.15 = 15%)";
+                this.WalkSpeedDebuffFromEnergy = 0.15f;
+                this.Feeling_Refreshed_Hours = "                             REFRESHED DURATION                                        🗘 (4.5)           -  The number of hours the player will feel refreshed starting from 0 sleepiness. This will give a buff to the player for the set amount of hours (4.5 = 4.5h) after sleeping. All stats from energy is affected by the boost set in RefreshedEnergyBoostMultiplier";
+                this.FeelingRefreshedHours = 4.5f;
+                this.Sleep_Regeneration_Factor = "                           REGENERATION SLEEPINESS         -  SLEEPINESS DRAIN       🗘 (1.5)           -  Modifier for how much sleep should decrease sleepiness. If you can't get sleepiness down enough while sleeping, then set this value higher than 1.";
+                this.SleepRegenerationFactor = 1.5f;
+                this.Energy_Restored_By_Sleeping_Modifier = "                REGENERATION ENERGY             -  ENERGY GAIN            🗘 (1.25)          -  Factor for how fast energy regenerates when sleeping. (Value is not correlating, so be carefull)";
+                this.EnergyRestoredBySleepingModifier = 1.25f;
+                this.Adrenaline_Duration = "                                 ADRENALINE DURATION             -  TIME                   🗘 (60)            -  For how long in real life seconds should the accumulated energy drain be delayed after taking attack damage?";
+                this.AdrenalineDuration = 120f;
+                this.LuckySleep_Chance = "                                   LUCKY SLEEP CHANCE              -  MOD MECHANIC           🗘 (0.01)          -  Percentage chance to wake up with everything fully restored. 0.01 = 1%";
+                this.LuckySleepChance = 0.01;
+                this.Tiredness_After_Sleep = "                               TIREDNESS VALUE                 -  TIME                   🗘 (10)            -  Tiredness is the vanilla mechanic that determines when you can sleep again, after waking up. Tiredness goes up as time goes and when it hits a value of 8, the player is allowed to sleep. Setting this to 5 results in a 4 in-game hours delay after waking up, before the player can sleep again for all bed types. Set this to 8 or above to be able to sleep as soon as you want after waking up.";
+                this.TirednessAfterSleep = 10f;
+                this.TirednessAfterRevival = 10f;
+                this.Fruit_Delay_Multiplier = "                              FRUIT DELAY MULTIPLIER          -  MOD MECHANIC           🗘 (1.0)           -  The multiplier to fruit saturation, resulting in seconds. The saturation value gained in fruit nutrition is the amount of seconds energy consumption is delayed. Use the multiplier to control the amount of seconds for the final delay. 200 sat * 0.5 = 100 seconds.";
+                this.FruitDelayMultiplier = 1.0f;
+                this.Upper_Lower_Ratio = "                                   RATIO THRESHOLDS                -  THRESHOLD              🗘 (0.7 - 0.15)    -  At what thresholds should energy start to affect stats. UpperRatio of 0.7 means that when energy is above 70% of base max capacity the buffs to stats will kick in. LowerRatio is the threshold for when debuffs start to kick in.";
+                this.LowerRatio = 0.15f;
+    }
+        }
+    }
+
+    public class ConfigServerNormal : ConfigServer
+    {
+        public ConfigServerNormal(ICoreAPI api, ConfigServerNormal previousConfig = null) : base(api, previousConfig)
+        {
+                this.Max_Energy = "                                          MAX ENERGY                                                🗘 (1200)          -  Set the base max energy amount.";
+                this.MaxEnergy = 1200f;
+                this.Max_Sleepiness = "                                      MAX SLEEPINESS                                            🗘 (15)            -  What is the max amount of sleepiness, before being overloaded? This value should be seen as hours.";
+                this.MaxSleepiness = 15f;
+                this.Hunger_Rate_Gain_From_Low_Energy = "                    HUNGER RATE HIGH                -  STAT CHANGE            🗘 (2.0)           -  The percentage by which the hunger rate is increased when energy is below 30%. This is gradual and the value is the final percentage when energy is 0%. (3.5 = 350% increase in hunger rate. This is added to the default 100% so 450% is the final value.)";
+                this.HungerRateGainFromLowEnergy = 2.0f;
+                this.Hunger_Energy_Rate_Debuff = "                           HUNGER DEBUFF                   -  STAT CHANGE            🗘 (1000)          -  Maximum increase of energy rate caused by hunger. This value is the final energy rate when hunger reaches 0. (Set in percent; 1000 = 1000%)";
+                this.HungerEnergyrateDebuff = 1000f;
+                this.Hunger_Energy_Rate_Debuff_Start_Ratio = "               HUNGER THRESHOLD                -  MOD MECHANIC           🗘 (0.2)           -  When should hunger affect energy rate? Default is 0.15 which means the debuff starts when satiety is at 15% and downwards to 0";
+                this.HungerEnergyrateDebuffStartRatio = 0.2f;
+                this.Sleepiness_Energy_Rate_Debuff = "                       SLEEPINESS DEBUFF               -  STAT CHANGE            🗘 (1000)          -  When in an overloaded state of sleepiness, how much should the increase in energy rate be, when fully overloaded? (Set the final percentage; 600 = 600%) :: This is gradually increased from overload starts till it's full. See settings for sleepiness to get a hint on how overload is set.";
+                this.SleepinessEnergyrateDebuff = 1000f;
+                this.Energy_Rate_Per_Degrees = "                             TEMPERATURE DEBUFF              -  STAT CHANGE            🗘 (100)           -  This is the increased energy rate pr. degree C when being cold. If body temp is above 37.8 C then this value is doubled. This is because body temp above normal is very serious in real life and is rare in the game to ever happen. (50 = 50% pr. degree)";
+                this.EnergyRatePerDegrees = 100f;
+                this.WalkSpeed_From_Energy = "                               WALK SPEED STATS                -  STAT CHANGE            🗘 (0.30)          -  How much should walkspeed be affected? (0.15 = 15%)";
+                this.WalkSpeedDebuffFromEnergy = 0.30f;
+                this.Feeling_Refreshed_Hours = "                             REFRESHED DURATION                                        🗘 (4)             -  The number of hours the player will feel refreshed starting from 0 sleepiness. This will give a buff to the player for the set amount of hours (4.5 = 4.5h) after sleeping. All stats from energy is affected by the boost set in RefreshedEnergyBoostMultiplier";
+                this.FeelingRefreshedHours = 4f;
+                this.GainSleepiness_WhenHealing_Modifier = "                 HEALING MAKES SLEEPY            -  SLEEPINESS GAIN        🗘 (0.5)           -  Modifier for how much sleepiness is gained from healing.";
+                this.GainSleepinessWhenHealingModifier = 0.5f;
+                this.Energy_Drain_From_Damage_Multiplier = "                 DAMAGE DRAINS                   -  ENERGY COST            🗘 (0.5)           -  When taking damage energy is drained, because it takes a toll on you getting bit by a bear...";
+                this.EnergyDrainFromDamageMultiplier = 0.5f;
+                this.Adrenaline_Duration = "                                 ADRENALINE DURATION             -  TIME                   🗘 (90)            -  For how long in real life seconds should the accumulated energy drain be delayed after taking attack damage?";
+                this.AdrenalineDuration = 90f;
+                this.Jump_Height_From_High_Energy = "                        JUMP HEIGHT STATS               -  STAT CHANGE            🗘 (0.44 - 0.4)    -  The values are not so simple as percentages, so you will have to try for yourself.";
+                this.JumpHeightDebuffFromEnergy = 0.4f;
+                this.Tiredness_After_Sleep = "                               TIREDNESS VALUE                 -  TIME                   🗘 (10)            -  Tiredness is the vanilla mechanic that determines when you can sleep again, after waking up. Tiredness goes up as time goes and when it hits a value of 8, the player is allowed to sleep. Setting this to 5 results in a 4 in-game hours delay after waking up, before the player can sleep again for all bed types. Set this to 8 or above to be able to sleep as soon as you want after waking up.";
+                this.TirednessAfterSleep = 10f;
+                this.TirednessAfterRevival = 10f;
+                this.Fruit_Delay_Multiplier = "                              FRUIT DELAY MULTIPLIER          -  MOD MECHANIC           🗘 (0.5)           -  The multiplier to fruit saturation, resulting in seconds. The saturation value gained in fruit nutrition is the amount of seconds energy consumption is delayed. Use the multiplier to control the amount of seconds for the final delay. 200 sat * 0.5 = 100 seconds.";
+                this.FruitDelayMultiplier = 0.5f;
+    }
+    }
+
+    public class ConfigServerHard : ConfigServer
+    {
+        public ConfigServerHard(ICoreAPI api, ConfigServerHard previousConfig = null) : base(api, previousConfig)
+        {
+                this.FruitDelays_EnergyReduction = "                         FRUIT DELAYS ENERGY             -  MOD MECHANIC           🗘 (false)         -  This makes eating fruit adding a delay to energy consumption.";
+                this.FruitDelaysEnergyReduction = false;
+                this.LuckySleep_Chance = "                                   LUCKY SLEEP CHANCE              -  MOD MECHANIC           🗘 (0.0001)        -  Percentage chance to wake up with everything fully restored. 0.0001 = 0.01%, 0.01 = 1%";
+                this.LuckySleepChance = 0.0001;
+    }
+    }
+
     public class ConfigServer : IModConfig
     {
         // Energy
@@ -116,6 +228,10 @@ namespace SleepNeed.Config
         public bool OnlyDieFromNoEnergy { get; set; } = true; // If true, the player will only die from no energy, so if the player has no energy, they will die, but if they have energy, they will not die from hunger.
         public string Damage_If_No_Energy_And_Starving { get; set; } = "                    DAMAGE FATIGUE + STARVING       -  DAMAGE / TICK          🗘 (0.5)          -  Damage pr. tick. Only applied if OnlyDieFromNoEnergy = true.";
         public float DamageIfNoEnergyAndStarving { get; set; } = 0.5f; // Damage pr. tick
+        public string FruitDelays_EnergyReduction { get; set; } = "                         FRUIT DELAYS ENERGY             -  MOD MECHANIC           🗘 (true)         -  This makes eating fruit adding a delay to energy consumption.";
+        public bool FruitDelaysEnergyReduction { get; set; } = true;
+        public string Fruit_Delay_Multiplier { get; set; } = "                              FRUIT DELAY MULTIPLIER          -  MOD MECHANIC           🗘 (0.5)          -  The multiplier to fruit saturation, resulting in seconds. The saturation value gained in fruit nutrition is the amount of seconds energy consumption is delayed. Use the multiplier to control the amount of seconds for the final delay. 200 sat * 0.5 = 100 seconds.";
+        public float FruitDelayMultiplier { get; set; } = 0.5f;
         public string Energy_Kills { get; set; } = "        IF HUNGER MATTERS IS DISABLED:  ENERGY KILLS                    -  MOD MECHANIC           🗘 (true)         -  This is only valid, if Hunger Matters is disabled. If HungerLevelMatters = false, then you take damage when energy reaches 0.";
         public bool EnergyKills { get; set; } = true; // Only used if Hunger Matters is disabled
         public string Damage_If_No_Energy_And_Hunger_Does_Not_Matter { get; set; } = "      DAMAGE FATIGUE                  -  DAMAGE / TICK          🗘 (0.25)         -  Damage pr. tick if hunger matters is disabled and energy reaches 0.";
@@ -138,12 +254,15 @@ namespace SleepNeed.Config
         public string Body_Temperature_Matters { get; set; } = "                            TEMPERATURE MATTERS             -  MOD MECHANIC           🗘 (true)         -  This will make the body temperature of the player affect the energy rate, so if the player is too cold or too hot, they will have increased energy rate and will drain energy faster. (< 37, > 37.8)";
         public bool BodyTemperatureMatters { get; set; } = true; // Enable the body temperature matters, which will make the body temperature of the player matter for the energy level, so if the player is too cold or too hot, they will have increased energy rate and will drain energy faster.
         public string Energy_Rate_Per_Degrees { get; set; } = "                             TEMPERATURE DEBUFF              -  STAT CHANGE            🗘 (250)          -  This is the increased energy rate pr. degree C when being cold. If body temp is above 37.8 C then this value is doubled. This is because body temp above normal is very serious in real life and is rare in the game to ever happen. (250 = 250% pr. degree)";
-        public float EnergyRatePerDegrees { get; set; } = 250f; // 45 = 450% So energy rate will increase 450% per degree of body temp outside normal core temp.
+        public float EnergyRatePerDegrees { get; set; } = 250f; 
         public string Sprinting_Warmth { get; set; } = "                                    TEMPERATURE SPRINTING/JUMPING   -  STAT CHANGE            🗘 (0.06)         -  Sprinting or jumping while freezing raises the body temperature by (0.06) degrees pr. second";
         public float SprintingWarmth { get; set; } = 0.06f;
         public string Sleepiness_Energy_Rate_Debuff { get; set; } = "                       SLEEPINESS DEBUFF               -  STAT CHANGE            🗘 (3000)         -  When in an overloaded state of sleepiness, how much should the increase in energy rate be, when fully overloaded? (Set the final percentage; 3000 = 3000%) :: This is gradually increased from overload starts till it's full. See settings for sleepiness to get a hint on how overload is set.";
         public float SleepinessEnergyrateDebuff { get; set; } = 3000f; // Put in the wanted end percentage. 3000 = 3000%
         public string Energy_Stats_Settings { get; set; } = "       ----------------------  STAT CHANGES  ----------------------                      -  Stats affected by the current energy level. All values are either added as boost when above 70% energy or subtracted as debuff when below 30% energy.";
+        public string Upper_Lower_Ratio { get; set; } = "                                   RATIO THRESHOLDS                -  THRESHOLD              🗘 (0.7 - 0.3)    -  At what thresholds should energy start to affect stats. UpperRatio of 0.7 means that when energy is above 70% of base max capacity the buffs to stats will kick in. LowerRatio is the threshold for when debuffs start to kick in.";
+        public float UpperRatio { get; set; } = 0.7f;
+        public float LowerRatio { get; set; } = 0.3f;
         public string Enable_Energy_Depended_WalkSpeed { get; set; } = "                    WALK SPEED                      -  MOD MECHANIC           🗘 (true)         -  Should energy have any impact on walkspeed?";
         public bool EnableEnergyDependedWalkSpeed { get; set; } = true;
         public string WalkSpeed_From_Energy { get; set; } = "                               WALK SPEED STATS                -  STAT CHANGE            🗘 (0.15 - 0.45)  -  How much should walkspeed be affected? (0.15 = 15%)";
@@ -258,8 +377,10 @@ namespace SleepNeed.Config
         public string Tiredness_After_Sleep { get; set; } = "                               TIREDNESS VALUE                 -  TIME                   🗘 (5)            -  Tiredness is the vanilla mechanic that determines when you can sleep again, after waking up. Tiredness goes up as time goes and when it hits a value of 8, the player is allowed to sleep. Setting this to 5 results in a 4 in-game hours delay after waking up, before the player can sleep again for all bed types. Set this to 8 or above to be able to sleep as soon as you want after waking up.";
         public float TirednessAfterSleep { get; set; } = 5f;
         public float TirednessAfterRevival { get; set; } = 5f;
-        public string Disable_Vanilla_Tiredness { get; set; } = "                           DISABLE VANILLA TIREDNESS       -  VANILLA MECHANIC       🗘 (false)        -  Disable the vanilla tiredness mechanic if set to true. This means the player can now sleep any time they want.";
-        public bool DisableTiredness { get; set; } = false;
+        public string Indefinite_Sleep_Duration { get; set; } = "                           DISABLE VANILLA TIREDNESS       -  VANILLA MECHANIC       🗘 (false)        -  Disable the vanilla tiredness mechanic if set to true. This means the player can now sleep any time they want.";
+        public bool IndefiniteSleepDuration { get; set; } = false;
+        public string LuckySleep_Chance { get; set; } = "                                   LUCKY SLEEP CHANCE              -  MOD MECHANIC           🗘 (0.001)        -  Percentage chance to wake up with everything fully restored. 0.001 = 0.1%, 0.01 = 1%";
+        public double LuckySleepChance { get; set; } = 0.001;
         public string Disable_Behaviors { get; set; } = "           ----------------------  DISABLE MOD BEHAVIORS  ---------------------                                -  Here you can turn off Energy or Sleepiness and only keep the behavior you want. You can also turn off all stat changes if you don't want the mod touching any stats at all.";
         public string Disable_Behaviors_Note { get; set; } = "                   -----   🕱 🚫  WARNING! 🚫 🕱   -----       -  Only Enable/Disable Energy or Sleepiness when out of game, so the world can load with the new config";
         public string Enable_Energy { get; set; } = "                                       ENABLE ENERGY                   -  MOD SYSTEM             🗘 (true)         -  You can disable the energy system and only keep the sleepiness, there will bee slight changes to the mod and what it affects.";
@@ -309,6 +430,8 @@ namespace SleepNeed.Config
                 HungerRateReductionFromHighEnergy = this.HungerRateReductionFromHighEnergy,
                 HungerRateGainFromLowEnergy = this.HungerRateGainFromLowEnergy,
                 EnergyAfterRevival = this.EnergyAfterRevival,
+                FruitDelaysEnergyReduction = this.FruitDelaysEnergyReduction,
+                FruitDelayMultiplier = this.FruitDelayMultiplier,
 
                 // Energy Rates
                 HungerEnergyrateDebuff = this.HungerEnergyrateDebuff,
@@ -347,6 +470,8 @@ namespace SleepNeed.Config
                 AnimalHarvestingTimeBoostFromEnergy = this.AnimalHarvestingTimeBoostFromEnergy,
                 AnimalHarvestingTimeDebuffFromEnergy = this.AnimalHarvestingTimeDebuffFromEnergy,
                 RefreshedEnergyBoostMultiplier = this.RefreshedEnergyBoostMultiplier,
+                UpperRatio = this.UpperRatio,
+                LowerRatio = this.LowerRatio,
 
                 // Sleepiness
                 MaxSleepiness = this.MaxSleepiness,
@@ -382,7 +507,8 @@ namespace SleepNeed.Config
                 DelaySeconds = this.DelaySeconds,
                 TirednessAfterSleep = this.TirednessAfterSleep,
                 TirednessAfterRevival = this.TirednessAfterRevival,
-                DisableTiredness = this.DisableTiredness
+                IndefiniteSleepDuration = this.IndefiniteSleepDuration,
+                LuckySleepChance = this.LuckySleepChance
             };
         }
 
@@ -439,6 +565,8 @@ namespace SleepNeed.Config
             this.AnimalHarvestingTimeBoostFromEnergy = previousConfig.AnimalHarvestingTimeBoostFromEnergy;
             this.AnimalHarvestingTimeDebuffFromEnergy = previousConfig.AnimalHarvestingTimeDebuffFromEnergy;
             this.RefreshedEnergyBoostMultiplier = previousConfig.RefreshedEnergyBoostMultiplier;
+            this.UpperRatio = previousConfig.UpperRatio;
+            this.LowerRatio = previousConfig.LowerRatio;
 
             // Invigoration
             this.EnableInvigoratedHealthBoost = previousConfig.EnableInvigoratedHealthBoost;
@@ -473,6 +601,8 @@ namespace SleepNeed.Config
             this.DamageIfNoEnergyAndStarving = previousConfig.DamageIfNoEnergyAndStarving;
             this.EnableNutrientFactor = previousConfig.EnableNutrientFactor;
             this.NutritionLossWhenStarvingModifier = previousConfig.NutritionLossWhenStarvingModifier;
+            this.FruitDelaysEnergyReduction = previousConfig.FruitDelaysEnergyReduction;
+            this.FruitDelayMultiplier = previousConfig.FruitDelayMultiplier;
 
             // Temperature
             this.BodyTemperatureMatters = previousConfig.BodyTemperatureMatters;
@@ -498,7 +628,8 @@ namespace SleepNeed.Config
             this.DelaySeconds = previousConfig.DelaySeconds;
             this.TirednessAfterSleep = previousConfig.TirednessAfterSleep;
             this.TirednessAfterRevival = previousConfig.TirednessAfterRevival;
-            this.DisableTiredness = previousConfig.DisableTiredness;
+            this.IndefiniteSleepDuration = previousConfig.IndefiniteSleepDuration;
+            this.LuckySleepChance = previousConfig.LuckySleepChance;
 
             // Master Switches
             this.EnableEnergy = previousConfig.EnableEnergy;
@@ -624,7 +755,14 @@ namespace SleepNeed.Config
         [ProtoMember(93)] public float SprintingWarmth { get; set; }
         [ProtoMember(94)] public float TirednessAfterSleep { get; set; }
         [ProtoMember(95)] public float TirednessAfterRevival { get; set; }
-        [ProtoMember(96)] public bool DisableTiredness { get; set; }
+        [ProtoMember(96)] public bool IndefiniteSleepDuration { get; set; }
+        [ProtoMember(97)] public bool FruitDelaysEnergyReduction { get; set; }
+        [ProtoMember(98)] public double LuckySleepChance { get; set; }
+        [ProtoMember(99)] public float FruitDelayMultiplier { get; set; }
+        [ProtoMember(100)] public float UpperRatio { get; set; }
+        [ProtoMember(101)] public float LowerRatio { get; set; }
+        
+
 
         public SyncedConfig()
         {
@@ -643,13 +781,15 @@ namespace SleepNeed.Config
         public static T ReadConfig<T>(ICoreAPI api, string jsonConfig) where T : IModConfig
         {
             T config;
+            string fileName = Path.GetFileName(jsonConfig);
+            string subfolderPath = "SleepNeed/" + fileName;
             try
             {
-                config = api.LoadModConfig<T>(jsonConfig);
+                config = api.LoadModConfig<T>(subfolderPath);
             }
             catch (System.Exception e)
             {
-                api.Logger.Error("Failed to load custom config for {0}. Error: {1}", jsonConfig, e.Message);
+                api.Logger.Error("Failed to load custom config for {0}. Error: {1}", subfolderPath, e.Message);
                 config = null;
             }
 
@@ -659,17 +799,22 @@ namespace SleepNeed.Config
                 config = (T)Activator.CreateInstance(typeof(T), api, null);
 
                 
-                string updatePath = Path.Combine(api.GetOrCreateDataPath("ModConfig"), jsonConfig);
+                string updatePath = Path.Combine(api.GetOrCreateDataPath("ModConfig"), "SleepNeed", fileName);
 
                 if (!System.IO.File.Exists(updatePath))
                 {
-                    api.StoreModConfig(config, jsonConfig);
+                    string directory = Path.GetDirectoryName(updatePath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    api.StoreModConfig(config, subfolderPath);
                 }
             }
             else
             {
                 
-                api.StoreModConfig(config, jsonConfig);
+                api.StoreModConfig(config, subfolderPath);
             }
 
             return config;
@@ -677,7 +822,8 @@ namespace SleepNeed.Config
 
         public static void WriteConfig<T>(ICoreAPI api, string jsonConfig, T config) where T : IModConfig
         {
-            api.StoreModConfig(config, jsonConfig);
+            string fileName = Path.GetFileName(jsonConfig);
+            api.StoreModConfig(config, "SleepNeed/" + fileName);
         }
 
         

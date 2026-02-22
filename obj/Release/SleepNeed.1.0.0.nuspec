@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>SleepNeed</id>
+    <version>1.0.0</version>
+    <authors>SleepNeed</authors>
+    <description>Package Description</description>
+    <repository type="git" commit="8dac3318453188d5110d4d923bb3ffa07cba8ada" />
+    <dependencies>
+      <group targetFramework="net8.0" />
+    </dependencies>
+    <contentFiles>
+      <files include="any/net8.0/modinfo.json" buildAction="Content" />
+    </contentFiles>
+  </metadata>
+  <files>
+    <file src="C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\bin\Release\Mods\mod\SleepNeed.dll" target="lib\net8.0\SleepNeed.dll" />
+    <file src="C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\modinfo.json" target="content\modinfo.json" />
+    <file src="C:\Users\admin\Documents\Google Drive\Mod Creation by Slikkelas\Vintage Story\SleepNeed\SleepNeed\modinfo.json" target="contentFiles\any\net8.0\modinfo.json" />
+  </files>
+</package>
