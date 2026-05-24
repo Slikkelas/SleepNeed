@@ -1,0 +1,40 @@
+# ==========================================
+# Language & Compiler Outputs (.NET / C#)
+# ==========================================
+[Bb]in/
+[Oo]bj/
+*.msi
+*.exe
+*.dll
+*.pdb
+*.xml
+
+# Exception: Protect your mod's configuration and artwork assets
+!SleepNeed/assets/**/*
+!SleepNeed/modicon.png
+!SleepNeed/modinfo.json
+
+# ==========================================
+# IDE & Editor Leftovers (Rider, VS, VSCode)
+# ==========================================
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.doccertificates
+*.DotSettings.user
+
+# ==========================================
+# Build Tools & Automation (Cake Build)
+# ==========================================
+tools/
+/CakeBuild/bin/
+/CakeBuild/obj/
+
+# ==========================================
+# Operating System Leftovers
+# ==========================================
+.DS_Store
+Thumbs.db

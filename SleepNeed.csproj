@@ -1,0 +1,103 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="assets\sleepneed\textures\**" />
+    <EmbeddedResource Remove="assets\sleepneed\textures\**" />
+    <None Remove="assets\sleepneed\textures\**" />
+  </ItemGroup>
+
+<ItemGroup>
+  <Content Include="modinfo.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </Content>
+</ItemGroup>
+
+<ItemGroup>
+  <Reference Include="0Harmony">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Lib/0Harmony.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="cairo-sharp">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Lib/cairo-sharp.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="Microsoft.Data.Sqlite">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Lib/Microsoft.Data.Sqlite.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="Newtonsoft.Json">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Lib/Newtonsoft.Json.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="protobuf-net">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Lib/protobuf-net.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="VintagestoryAPI">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/VintagestoryAPI.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="VintagestoryLib">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/VintagestoryLib.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="VSCreativeMod">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Mods/VSCreativeMod.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="VSEssentials">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Mods/VSEssentials.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+  <Reference Include="VSSurvivalMod">
+    <HintPath>/home/slikkelas/.local/share/vintagestory/Mods/VSSurvivalMod.dll</HintPath>
+    <Private>False</Private>
+  </Reference>
+</ItemGroup>
+
+<ItemGroup>
+  <None Update="assets\sleepneed\blocktypes\groundbed.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\config\handbook\Groundbedguide.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\config\handbook\Energyguide.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\lang\en.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\patches\buildbedonearth.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\patches\playerhasenergy.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\patches\playerhassleepneed.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\shapes\block\soil\groundbed-feet.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\shapes\block\soil\groundbed-head.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\shapes\block\soil\groundbed-inventory.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="assets\sleepneed\shapes\item\groundbed_hooved.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+  <None Update="modicon.png">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
+</Project>

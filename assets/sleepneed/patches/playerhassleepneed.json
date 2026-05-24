@@ -1,0 +1,11 @@
+[
+  {
+    "op": "add",
+    "path": "/server/behaviors/8",
+    "value": {
+      "code": "sleepneed:sleepiness"
+    },
+    "file": "game:entities/humanoid/player.json",
+    "side": "Server"
+  }
+]

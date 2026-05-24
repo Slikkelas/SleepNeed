@@ -1,0 +1,47 @@
+{
+	"editor": {
+		"allAngles": false,
+		"entityTextureMode": false
+	},
+	"textureWidth": 16,
+	"textureHeight": 16,
+	"textureSizes": {
+	},
+	"textures": {
+        "ground": "game:block/transparent"
+    },
+	"elements": [
+		{
+			"name": "Plane2",
+			"from": [ 0, 0, 0 ],
+			"to": [ 16, 1, 16 ],
+			"rotationOrigin": [ 8.0, 0.0, 16.0 ],
+			"faces": {
+				"north": {
+					"texture": "#ground",
+					"uv": [ 0, 15, 16, 16 ]
+				},
+				"east": {
+					"texture": "#ground",
+					"uv": [ 0, 15, 16, 16 ]
+				},
+				"south": {
+					"texture": "#ground",
+					"uv": [ 0, 15, 16, 16 ]
+				},
+				"west": {
+					"texture": "#ground",
+					"uv": [ 0, 15, 16, 16 ]
+				},
+				"up": {
+					"texture": "#ground",
+					"uv": [ 0, 0, 16, 16 ]
+				},
+				"down": {
+					"texture": "#ground",
+					"uv": [ 0, 0, 16, 16 ]
+				}
+			}
+		}
+	]
+}
