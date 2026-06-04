@@ -458,7 +458,7 @@ namespace SleepNeed.Systems
                 {
                     double maxDistance = 20.0;
 
-                    double distSq = player.Entity.Pos.SquareDistanceTo(bedPos.X + 0.5, bedPos.Y, bedPos.Z + 0.5);
+                    double distSq = player.Entity.ServerPos.SquareDistanceTo(bedPos.X + 0.5, bedPos.Y, bedPos.Z + 0.5);
 
                     if (distSq > (maxDistance * maxDistance))
                     {
@@ -544,9 +544,9 @@ namespace SleepNeed.Systems
                     return;
                 }
                 
-                if (player.Entity.Pos == null)
+                if (player.Entity.ServerPos == null)
                 {
-                    sapi.Logger.Error($"[SleepNeed] GroundBed place failed: player.Entity.Pos is null for player {player.PlayerName}.");
+                    sapi.Logger.Error($"[SleepNeed] GroundBed place failed: player.Entity.ServerPos is null for player {player.PlayerName}.");
                     return;
                 }
                 
@@ -559,13 +559,13 @@ namespace SleepNeed.Systems
                 BlockPos placePos = packet.Position.AddCopy(face);
                 IWorldAccessor world = player.Entity.World;
 
-                if (player.Entity.Pos.DistanceTo(placePos.ToVec3d()) > player.WorldData.PickingRange + 1)
+                if (player.Entity.ServerPos.DistanceTo(placePos.ToVec3d()) > player.WorldData.PickingRange + 1)
                 {
                     sapi.Logger.Warning($"[SleepNeed] Player {player.PlayerName} tried to place groundbed too far away.");
                     return;
                 }
 
-                string orientation = BlockFacing.HorizontalFromYaw(player.Entity.Pos.Yaw).Code;
+                string orientation = BlockFacing.HorizontalFromYaw(player.Entity.ServerPos.Yaw).Code;
 
                 string headBlockCode = "groundbed-head-" + orientation;
                 AssetLocation blockCodeToPlace = new AssetLocation(BtCore.Modid, headBlockCode);
